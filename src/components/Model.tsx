@@ -5,6 +5,10 @@ import { Box3, BufferGeometry, Group, Mesh, MeshPhongMaterial } from "three";
 
 export type ModelProps = {
     modelUrl: string;
+}
+
+export type ModelWithTextureProps = {
+    modelUrl: string;
     textureUrl: string;
 }
 
@@ -23,7 +27,7 @@ function centerModel( model: Group ) {
     model.position.set(-center.x, -center.y, -center.z);
 }
 
-export default function Model( props : ModelProps ) {
+export function ModelWithTexture( props : ModelWithTextureProps ) {
     const model = useLoader(FBXLoader, props.modelUrl);
     const texture = useTexture(props.textureUrl);
 
@@ -44,3 +48,11 @@ export default function Model( props : ModelProps ) {
     return <primitive object={model} />;
 }
 
+export function Model( props : ModelProps ) {
+    const model = useLoader(FBXLoader, props.modelUrl);
+
+    // scale and center
+    scaleModel(model);
+    centerModel(model);
+    return <primitive object={model} />;
+}

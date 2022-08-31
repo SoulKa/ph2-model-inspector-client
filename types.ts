@@ -1,0 +1,1 @@
+export type ModelFolderObject = { [directory: string]: ModelFolderObject|boolean };

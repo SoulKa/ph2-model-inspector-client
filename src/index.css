@@ -18,3 +18,12 @@ code {
   display: flex;
   flex-direction: column;
 }
+
+.full-height {
+  height: 100%;
+}
+
+.page {
+  margin-top: 4em;
+  max-height: 100%;
+}
