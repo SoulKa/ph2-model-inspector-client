@@ -26,6 +26,8 @@ const storageManager = StorageManager.instance;
 function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: TreeNodeInfo<ModelObject>) => JSX.Element|undefined, modelPath = "" ) {
     const nodes = [] as TreeNodeInfo<ModelObject>[];
 
+    let fileCount = 0;
+    let dirCount = 0;
     for (const [name, subdir] of Object.entries(dir)) {
         const _modelPath = modelPath + (modelPath === "" ? "" : ":") + name;
         const node = {
@@ -34,11 +36,15 @@ function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: TreeNodeInfo<M
             nodeData: { modelPath: _modelPath }
         } as TreeNodeInfo<ModelObject>;
         if (typeof subdir === "object") {
-            node.childNodes = folderToTreeNodes(subdir, icon, _modelPath);
+            const { nodes: subnodes, fileCount: fc, dirCount: dc } = folderToTreeNodes(subdir, icon, _modelPath);
+            node.childNodes = subnodes;
             node.icon = "folder-close";
+            dirCount += 1 + dc;
+            fileCount += fc;
         } else if (typeof subdir === "boolean") {
             node.nodeData!.hasTexture = subdir;
             node.icon = <Icon icon="cube" intent={subdir ? "primary" : "none"} style={{ marginRight: ".5em" }} />;
+            fileCount++;
         } else {
             continue;
         }
@@ -48,7 +54,7 @@ function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: TreeNodeInfo<M
         nodes.push(node);
     }
 
-    return nodes;
+    return { nodes, fileCount, dirCount };
 }
 
 let _mapNodes : TreeNodeInfo<ModelObject>[]|undefined;
@@ -79,13 +85,12 @@ export default function ModelList() {
         try {
             loadingBrowserModels = true;
             
-            setBrowserNodes(
-                folderToTreeNodes(
-                    await apiManager.getModels(apiManager.modelDirectory),
-                    node => typeof node.nodeData!.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
-                )
+            const { nodes, fileCount, dirCount } = folderToTreeNodes(
+                await apiManager.getModels(apiManager.modelDirectory),
+                node => typeof node.nodeData!.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
             );
-            showMessage("Local models loaded", "success");
+            setBrowserNodes(nodes);
+            showMessage(`Loaded ${fileCount} local models from ${dirCount} directories`, "success");
         } catch(e) {
             handleError(e);
         }
@@ -100,8 +105,9 @@ export default function ModelList() {
         if (mapName === undefined) return;
         loadingMapModels = true;
         try {
-            setMapNodes(folderToTreeNodes(await apiManager.getMapModels(mapName), node => <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} />));
-            showMessage("Map models loaded", "success");
+            const { nodes, fileCount } = folderToTreeNodes(await apiManager.getMapModels(mapName), node => <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} />);
+            setMapNodes(nodes);
+            showMessage(`Loaded ${fileCount} map models`, "success");
         } catch(e) {
             handleError(e);
         }
@@ -109,13 +115,11 @@ export default function ModelList() {
     }
 
     // on first component mount: load models if the path is given
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
-        if (apiManager.modelDirectory === undefined) return;
         Promise.all([
             !loadingBrowserModels ? loadAllModels() : Promise.resolve(),
             !loadingMapModels ? loadMapModels() : Promise.resolve()
-        ]).catch(handleError);
+        ]).catch(handleError); // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     /**
@@ -183,7 +187,7 @@ export default function ModelList() {
     // render model component
     let modelNode = null as JSX.Element|null;
     if (model !== undefined) {
-        if (storageManager.getAppState("modelDirectory") === undefined) {
+        if (!model.isMapModel && storageManager.getAppState("modelDirectory") === undefined) {
             showError("Must select a model directory first!");
         } else {
             modelNode = (
