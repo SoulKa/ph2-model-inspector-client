@@ -81,6 +81,7 @@ export class ApiManager {
     }
 
     async getModels( directory: string ) {
+        console.log("Loading model index...");
         return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as ModelFolderObject;
     }
 

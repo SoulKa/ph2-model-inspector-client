@@ -1,5 +1,5 @@
-import { Card, Elevation, Navbar, Tree, TreeNodeInfo } from "@blueprintjs/core";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Card, Elevation, Tree, TreeNodeInfo } from "@blueprintjs/core";
+import { useNavigate } from "react-router-dom";
 import { ModelFolderObject } from "../../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
@@ -7,6 +7,7 @@ import { Canvas } from "@react-three/fiber";
 import CameraController from "../components/CameraController";
 import { Model, ModelWithTexture } from "../components/Model";
 import { ApiManager, API_ENDPOINT } from "../manager/ApiManager";
+import { StorageManager } from "../manager/StateManager";
 
 export type ModelListProps = {
     models: ModelFolderObject
@@ -18,14 +19,15 @@ declare type ModelObject = {
 }
 
 const apiManager = ApiManager.instance;
+const storageManager = StorageManager.instance;
 
 export default function ModelList( props: ModelListProps ) {
 
-    const [query, setQuery] = useSearchParams();
     const [nodes, setNodes] = useState([] as TreeNodeInfo<ModelObject>[]);
     const [model, setModel] = useState<ModelObject>();
     const navigation = useNavigate();
 
+    // if models changed: update tree nodes
     useEffect(() => {
         function getChildNodes( dir: ModelFolderObject, path = [] as string[] ) {
             const nodes = [] as TreeNodeInfo<ModelObject>[];
@@ -57,17 +59,24 @@ export default function ModelList( props: ModelListProps ) {
     }, [props.models]);
 
     // check if map is selected
-    const mapName = query.get("map");
-    //if (mapName === null) navigation("/");
+    const mapName = storageManager.getAppState("mapName");
+    if (mapName === undefined) {
+        navigation("/");
+        return null;
+    }
 
     // render model component
     let modelNode = null as JSX.Element|null;
     if (model !== undefined) {
-        const modelPathQuery = "?modelDirectory="+apiManager.modelDirectory+"&modelPath="+model.modelPath.join(":");
-        if (model.hasTexture) {
-            modelNode = <ModelWithTexture modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} textureUrl={API_ENDPOINT.MODEL_TEXTURE+modelPathQuery} />;
+        if (storageManager.getAppState("modelDirectory") === undefined) {
+
         } else {
-            modelNode = <Model modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} />;
+            const modelPathQuery = "?modelDirectory="+storageManager.getAppState("modelDirectory")+"&modelPath="+model.modelPath.join(":");
+            if (model.hasTexture) {
+                modelNode = <ModelWithTexture modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} textureUrl={API_ENDPOINT.MODEL_TEXTURE+modelPathQuery} />;
+            } else {
+                modelNode = <Model modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} />;
+            }
         }
     }
 

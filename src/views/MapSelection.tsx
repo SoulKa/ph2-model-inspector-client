@@ -3,10 +3,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Page from "../components/Page";
 import { ApiManager } from "../manager/ApiManager";
+import { StorageManager } from "../manager/StateManager";
 
 const apiManager = ApiManager.instance;
-
-
+const storageManager = StorageManager.instance;
 
 export default function MapSelection() {
 
@@ -23,14 +23,14 @@ export default function MapSelection() {
             {maps?.map( mapName => (
                 <Card
                     style={{ maxWidth: "40em", float: "left", margin: "2em" }}
-                    onClick={() => navigate("/browser?map="+mapName)}
+                    onClick={() => { storageManager.updateAppState("mapName", mapName); navigate("/browser"); }}
                     elevation={Elevation.THREE}
                     key={mapName}
                     interactive
                 >
                     <h2>{mapName}</h2>
                     <br/>
-                    <img src={apiManager.getMapImageUrl(mapName)} style={{ maxHeight: "100%", maxWidth: "100%" }} />
+                    <img src={apiManager.getMapImageUrl(mapName)} alt="Map Preview" style={{ maxHeight: "100%", maxWidth: "100%" }} />
                 </Card>
             ))}
         </Page>
