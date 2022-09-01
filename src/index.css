@@ -25,5 +25,5 @@ code {
 
 .page {
   margin-top: 4em;
-  max-height: 100%;
+  max-height: calc(100% - 4em);
 }
