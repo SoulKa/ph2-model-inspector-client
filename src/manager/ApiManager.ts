@@ -5,6 +5,7 @@ import { StorageManager } from "./StateManager";
 export enum API_ENDPOINT {
     MAPS = "/api/maps",
     MAP_MODELS = "/api/maps/:map/models",
+    MAP_MODEL = "/api/maps/:map/models/:model",
     MAP_IMAGE = "/api/maps/:map/preview.png",
     MODELS = "/api/models",
     MODEL_MESH = "/api/models/mesh",
@@ -108,6 +109,11 @@ export class ApiManager {
         const modelDirectory = storageManager.getAppState("modelDirectory");
         if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
         await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: { modelPath, texturePath }, params: { map: mapName }, query: { modelDirectory } });
+    }
+
+    async removeModelFromMap( mapName: string, modelName: string ) {
+        console.log(`Removing model "${modelName}" from "${mapName}"...`);
+        await this.fetch(API_ENDPOINT.MAP_MODEL, { method: "DELETE", params: { map: mapName, model: modelName } });
     }
 
 }

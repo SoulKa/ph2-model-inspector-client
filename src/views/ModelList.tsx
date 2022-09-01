@@ -1,4 +1,4 @@
-import { Button, Card, Elevation, H4, Icon, InputGroup, Tree, TreeNodeInfo } from "@blueprintjs/core";
+import { Button, Card, Elevation, Icon, InputGroup, Tree, TreeNodeInfo } from "@blueprintjs/core";
 import { useNavigate } from "react-router-dom";
 import { ModelFolderObject } from "../../types";
 import { useEffect, useState } from "react";
@@ -46,6 +46,9 @@ function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: TreeNodeInfo<M
     return nodes;
 }
 
+let _mapNodes = [] as TreeNodeInfo<ModelObject>[];
+let _browserNodes = [] as TreeNodeInfo<ModelObject>[];
+
 export default function ModelList() {
     
     const [loading, setLoading] = useState(false);
@@ -53,7 +56,9 @@ export default function ModelList() {
     const [browserNodes, setBrowserNodes] = useState([] as TreeNodeInfo<ModelObject>[]);
     const [model, setModel] = useState<ModelObject>();
     const navigation = useNavigate();
-    
+
+    _mapNodes = mapNodes;
+    _browserNodes = browserNodes;
     const mapName = storageManager.getAppState("mapName");
     apiManager.modelDirectory = storageManager.getAppState("modelDirectory");
 
@@ -103,7 +108,7 @@ export default function ModelList() {
      * @param node The clicked node (3D model)
      */
     function mapNodeClicked( node: TreeNodeInfo<ModelObject> ) {
-        if (node.nodeData === undefined) return;
+        if (node.nodeData === undefined || mapName === undefined) return;
     }
 
     /**
@@ -111,7 +116,10 @@ export default function ModelList() {
      * @param node The clicked node (3D model)
      */
     function removeModelFromMap( node: TreeNodeInfo<ModelObject> ) {
-        if (node.nodeData === undefined) return;
+        if (node.nodeData === undefined || mapName === undefined) return;
+        apiManager.removeModelFromMap(mapName, node.nodeData.modelPath)
+            .then(() => setMapNodes(_mapNodes.filter( n => n.id !== node.id )))
+            .catch(handleError);
     }
 
     /**
@@ -136,7 +144,15 @@ export default function ModelList() {
      */
     function addModelToMap( node: TreeNodeInfo<ModelObject> ) {
         if (mapName === undefined || node.nodeData === undefined || node.nodeData.hasTexture === undefined) return;
-        apiManager.addModelToMap(mapName, node.nodeData.modelPath, node.nodeData.hasTexture ? node.nodeData.modelPath : undefined).catch(handleError);
+        if (_mapNodes.findIndex(n => n.id === node.id) !== -1) {
+            showMessage(`Already added "${node.id}" to "${mapName}"...`, "warning");
+            return;
+        }
+        const _node = Object.assign({}, node);
+        _node.secondaryLabel = <Icon icon="minus" onClick={() => removeModelFromMap(_node)} />
+        apiManager.addModelToMap(mapName, node.nodeData.modelPath, node.nodeData.hasTexture ? node.nodeData.modelPath : undefined)
+            .then(() => setMapNodes(_mapNodes.concat([_node])))
+            .catch(handleError);
     }
 
     // check if map is selected
