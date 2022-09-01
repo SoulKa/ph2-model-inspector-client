@@ -98,4 +98,13 @@ export class ApiManager {
         return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as ModelFolderObject;
     }
 
+    async getMapModels( mapName: string ) {
+        console.log("Loading map models...");
+        return await this.fetch(API_ENDPOINT.MAP_MODELS, { params: { map: mapName } }) as ModelFolderObject;
+    }
+
+    async addModelToMap( mapName: string, modelPath: string, texturePath?: string ) {
+        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: { modelPath, texturePath }, params: { map: mapName } });
+    }
+
 }

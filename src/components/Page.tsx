@@ -10,11 +10,13 @@ export default function Page( props: PageProps ) {
     const _props = Object.assign({}, props);
     if (_props.className === undefined) _props.className = "";
     _props.className += " page";
+    const { headerComponents } = _props;
+    delete _props.headerComponents;
 
     return (
         <>
-            <Header title={props.title}>
-                {props.headerComponents}
+            <Header title={_props.title}>
+                {headerComponents}
             </Header>
             <div {..._props}>
 
