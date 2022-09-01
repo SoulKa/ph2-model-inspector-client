@@ -1,5 +1,6 @@
 import { ModelFolderObject } from "../../types";
-import { HttpError } from "../classes/Error";
+import { DisplayableError, HttpError } from "../classes/Error";
+import { StorageManager } from "./StateManager";
 
 export enum API_ENDPOINT {
     MAPS = "/api/maps",
@@ -19,10 +20,16 @@ export type FechtOptions = {
     body: object
 }
 
-function formatUrl( url: string, params: ParamsObject ) {
+function formatUrlParams( url: string, params: ParamsObject ) {
     for (const [key, value] of Object.entries(params)) url = url.replace(":"+key, value.toString());
     return url;
 }
+
+function formatUrlQuery( url: string, params: ParamsObject ) {
+    return url+"?"+Array.from(Object.entries(params)).map( ([key, value]) => key+"="+value ).join("&");
+}
+
+const storageManager = StorageManager.instance;
 
 export class ApiManager {
 
@@ -47,8 +54,8 @@ export class ApiManager {
 
         // prepare URL
         let url = endpoint as string;
-        if (options.params) formatUrl(url, options.params);
-        if (options.query) url += "?"+Array.from(Object.entries(options.query)).map( ([key, value]) => key+"="+value ).join("&");
+        if (options.params) url = formatUrlParams(url, options.params);
+        if (options.query) url = formatUrlQuery(url, options.query);
 
         // prepare header and body
         const headers = new Headers();
@@ -77,7 +84,13 @@ export class ApiManager {
     }
 
     getMapImageUrl( map: string ) {
-        return formatUrl(API_ENDPOINT.MAP_IMAGE, { map });
+        return formatUrlParams(API_ENDPOINT.MAP_IMAGE, { map });
+    }
+
+    getModelUrl( type : "mesh"|"texture", modelPath: string ) {
+        const modelDirectory = storageManager.getAppState("modelDirectory");
+        if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
+        return formatUrlQuery(type === "mesh" ? API_ENDPOINT.MODEL_MESH : API_ENDPOINT.MODEL_TEXTURE, { modelDirectory, modelPath });
     }
 
     async getModels( directory: string ) {

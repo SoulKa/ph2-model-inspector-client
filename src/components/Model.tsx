@@ -7,11 +7,14 @@ export type ModelProps = {
     modelUrl: string;
 }
 
-export type ModelWithTextureProps = {
-    modelUrl: string;
+export type ModelWithTextureProps = ModelProps & {
     textureUrl: string;
 }
 
+/**
+ * Scales the given 3D model to a common fixed size
+ * @param model The FBX mesh group
+ */
 function scaleModel( model: Group ) {
     const boundingBox = new Box3().setFromObject(model);
     const xSize = boundingBox.max.x - boundingBox.min.x;
@@ -21,6 +24,10 @@ function scaleModel( model: Group ) {
     model.scale.set(scale, scale, scale);
 }
 
+/**
+ * Centers the given 3D model to the origin
+ * @param model The FBX mesh group
+ */
 function centerModel( model: Group ) {
     const boundingBox = new Box3().setFromObject(model);
     const center = boundingBox.getCenter(model.position);

@@ -1,4 +1,4 @@
-import { Card, Elevation, Tree, TreeNodeInfo } from "@blueprintjs/core";
+import { Card, Elevation, Icon, Tree, TreeNodeInfo } from "@blueprintjs/core";
 import { useNavigate } from "react-router-dom";
 import { ModelFolderObject } from "../../types";
 import { useEffect, useState } from "react";
@@ -6,7 +6,7 @@ import Page from "../components/Page";
 import { Canvas } from "@react-three/fiber";
 import CameraController from "../components/CameraController";
 import { Model, ModelWithTexture } from "../components/Model";
-import { ApiManager, API_ENDPOINT } from "../manager/ApiManager";
+import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
 
 export type ModelListProps = {
@@ -39,13 +39,15 @@ export default function ModelList( props: ModelListProps ) {
                         id: name,
                         label: name.substring(0, name.length),
                         nodeData: { modelPath },
-                        childNodes: getChildNodes(subdir, modelPath)
+                        childNodes: getChildNodes(subdir, modelPath),
+                        icon: "folder-close"
                     });
                 } else if (typeof subdir === "boolean") {
                     nodes.push({
                         id: name,
                         label: name.substring(0, name.length),
-                        nodeData: { modelPath, hasTexture: subdir }
+                        nodeData: { modelPath, hasTexture: subdir },
+                        icon: <Icon icon="cube" intent={subdir ? "primary" : "none"} style={{ marginRight: ".5em" }} />
                     });
                 } else {
                     continue;
@@ -71,12 +73,23 @@ export default function ModelList( props: ModelListProps ) {
         if (storageManager.getAppState("modelDirectory") === undefined) {
 
         } else {
-            const modelPathQuery = "?modelDirectory="+storageManager.getAppState("modelDirectory")+"&modelPath="+model.modelPath.join(":");
+            const modelPath = model.modelPath.join(":");
             if (model.hasTexture) {
-                modelNode = <ModelWithTexture modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} textureUrl={API_ENDPOINT.MODEL_TEXTURE+modelPathQuery} />;
+                modelNode = <ModelWithTexture modelUrl={apiManager.getModelUrl("mesh", modelPath)} textureUrl={apiManager.getModelUrl("texture", modelPath)} />;
             } else {
-                modelNode = <Model modelUrl={API_ENDPOINT.MODEL_MESH+modelPathQuery} />;
+                modelNode = <Model modelUrl={apiManager.getModelUrl("mesh", modelPath)} />;
             }
+        }
+    }
+
+    function nodeClicked( node: TreeNodeInfo<ModelObject> ) {
+        if (node.nodeData === undefined) return;
+        if (node.nodeData.hasTexture === undefined) {
+            node.isExpanded = !node.isExpanded;
+            node.icon = node.isExpanded ? "folder-open" : "folder-close";
+            setNodes(nodes.concat());
+        } else {
+            setModel(node.nodeData)
         }
     }
 
@@ -86,9 +99,9 @@ export default function ModelList( props: ModelListProps ) {
                 <Tree
                     contents={nodes}
                     className="full-height"
-                    onNodeExpand={node => { node.isExpanded = true; setNodes(nodes.concat()); }}
-                    onNodeCollapse={node => { node.isExpanded = false; setNodes(nodes.concat()); }}
-                    onNodeClick={node => setModel(node.nodeData)}
+                    onNodeExpand={nodeClicked}
+                    onNodeCollapse={nodeClicked}
+                    onNodeClick={nodeClicked}
                 />
             </Card>
             <Card style={{ flex: 3, margin: "1em", padding: 0 }} elevation={Elevation.THREE}>

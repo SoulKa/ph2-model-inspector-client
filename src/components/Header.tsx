@@ -18,16 +18,17 @@ export default function Header( props: HeaderProps ) {
 
     async function loadModels() {
         if (apiManager.modelDirectory === undefined) return;
+        setLoading(true);
         storageManager.updateAppState("modelDirectory", apiManager.modelDirectory);
         if (props.onModelsLoaded) props.onModelsLoaded(await apiManager.getModels(apiManager.modelDirectory));
+        setLoading(false);
     }
 
-
     // on first component mount: load models if the path is given
-    useEffect(() => {
-        if (apiManager.modelDirectory !== undefined) loadModels().catch();
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { if (apiManager.modelDirectory !== undefined) loadModels().catch(); }, []);
     
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     return (
         <Navbar fixedToTop>
             <Navbar.Group>
