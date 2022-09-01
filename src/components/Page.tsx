@@ -1,6 +1,10 @@
-import { DetailedHTMLProps, HTMLAttributes } from "react";
+import { DetailedHTMLProps, HTMLAttributes, ReactNode } from "react";
+import Header from "./Header";
 
-export type PageProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
+export type PageProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & {
+    headerComponents?: ReactNode;
+    title: string;
+};
 
 export default function Page( props: PageProps ) {
     const _props = Object.assign({}, props);
@@ -8,8 +12,13 @@ export default function Page( props: PageProps ) {
     _props.className += " page";
 
     return (
-        <div {..._props}>
+        <>
+            <Header title={props.title}>
+                {props.headerComponents}
+            </Header>
+            <div {..._props}>
 
-        </div>
+            </div>
+        </>
     );
 }

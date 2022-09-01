@@ -18,7 +18,7 @@ export default function MapSelection() {
     if (maps === undefined) apiManager.getMaps().then(setMaps).catch(handleError);
 
     return (
-        <Page>
+        <Page title="Map Selection">
             {maps?.map( mapName => (
                 <Card
                     style={{ maxWidth: "40em", float: "left", margin: "2em" }}
