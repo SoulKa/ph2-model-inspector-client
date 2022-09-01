@@ -82,7 +82,7 @@ export default function ModelList() {
             setBrowserNodes(
                 folderToTreeNodes(
                     await apiManager.getModels(apiManager.modelDirectory),
-                    node => typeof node.nodeData!.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={() => addModelToMap(node)} /> : undefined
+                    node => typeof node.nodeData!.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
                 )
             );
             showMessage("Local models loaded", "success");
