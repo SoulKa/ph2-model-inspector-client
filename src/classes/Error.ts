@@ -1,3 +1,5 @@
+import { IconName } from "@blueprintjs/core";
+
 export class HttpError extends Error {
 
     statusCode: number;
@@ -11,8 +13,11 @@ export class HttpError extends Error {
 
 export class DisplayableError extends Error {
 
-    constructor( message = "Unknown error" ) {
+    icon: IconName|JSX.Element;
+
+    constructor( message = "Unknown error", icon = "warning-sign" as IconName|JSX.Element ) {
         super(message);
+        this.icon = icon;
     }
-    
+
 }

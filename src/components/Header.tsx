@@ -1,6 +1,7 @@
 import { Button, InputGroup, Navbar } from "@blueprintjs/core";
 import { useEffect, useState } from "react";
 import { ModelFolderObject } from "../../types";
+import { handleError, showMessage } from "../classes/Toaster";
 import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
 
@@ -20,7 +21,14 @@ export default function Header( props: HeaderProps ) {
         if (apiManager.modelDirectory === undefined) return;
         setLoading(true);
         storageManager.updateAppState("modelDirectory", apiManager.modelDirectory);
-        if (props.onModelsLoaded) props.onModelsLoaded(await apiManager.getModels(apiManager.modelDirectory));
+        if (props.onModelsLoaded) {
+            try {
+                props.onModelsLoaded(await apiManager.getModels(apiManager.modelDirectory));
+                showMessage("Models loaded", "success");
+            } catch(e) {
+                handleError(e);
+            }
+        }
         setLoading(false);
     }
 

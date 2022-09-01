@@ -8,6 +8,7 @@ import CameraController from "../components/CameraController";
 import { Model, ModelWithTexture } from "../components/Model";
 import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
+import { showError } from "../classes/Toaster";
 
 export type ModelListProps = {
     models: ModelFolderObject
@@ -71,7 +72,7 @@ export default function ModelList( props: ModelListProps ) {
     let modelNode = null as JSX.Element|null;
     if (model !== undefined) {
         if (storageManager.getAppState("modelDirectory") === undefined) {
-
+            showError("Must select a model directory first!");
         } else {
             const modelPath = model.modelPath.join(":");
             if (model.hasTexture) {

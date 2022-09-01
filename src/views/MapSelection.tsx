@@ -1,6 +1,7 @@
 import { Card, Elevation } from "@blueprintjs/core";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { handleError } from "../classes/Toaster";
 import Page from "../components/Page";
 import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
@@ -14,9 +15,7 @@ export default function MapSelection() {
     const navigate = useNavigate();
 
     // load maps
-    if (maps === undefined) {
-        apiManager.getMaps().then(setMaps);
-    }
+    if (maps === undefined) apiManager.getMaps().then(setMaps).catch(handleError);
 
     return (
         <Page>
