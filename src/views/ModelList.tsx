@@ -9,6 +9,7 @@ import { Model } from "../components/Model";
 import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
 import { handleError, showError, showMessage } from "../classes/Toaster";
+import { Vector3 } from "three";
 
 declare type ModelObject = {
     modelPath: string;
@@ -214,7 +215,8 @@ export default function ModelList() {
                 <Card style={{ flex: 3, margin: "1em", padding: 0 }} elevation={Elevation.THREE}>
                     <Canvas>
                         <CameraController />
-                        <ambientLight color="white" />
+                        <pointLight position={new Vector3(25, 25, 25)} intensity={0.6} />
+                        <pointLight position={new Vector3(-25, -25, -25)} intensity={0.6} />
                         {modelNode}
                     </Canvas>
                 </Card>
