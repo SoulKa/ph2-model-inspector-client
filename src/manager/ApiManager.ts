@@ -104,7 +104,10 @@ export class ApiManager {
     }
 
     async addModelToMap( mapName: string, modelPath: string, texturePath?: string ) {
-        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: { modelPath, texturePath }, params: { map: mapName } });
+        console.log(`Adding model "${modelPath}" to "${mapName}"...`);
+        const modelDirectory = storageManager.getAppState("modelDirectory");
+        if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
+        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: { modelPath, texturePath }, params: { map: mapName }, query: { modelDirectory } });
     }
 
 }

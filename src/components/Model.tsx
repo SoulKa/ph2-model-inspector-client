@@ -77,7 +77,7 @@ export function Model( props : ModelProps ) {
 
     // load model asynchronously in background
     useEffect(() => {
-        loadModel(props.modelUrl, props.textureUrl).then(setModel).catch(handleError);
+        loadModel(props.modelUrl, props.textureUrl, props.onProgress).then(setModel).catch(handleError);
     }, [props.modelUrl, props.textureUrl]);
 
     // render once loaded
