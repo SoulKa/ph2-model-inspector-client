@@ -73,7 +73,7 @@ export default function ModelList() {
             setBrowserNodes(
                 folderToTreeNodes(
                     await apiManager.getModels(apiManager.modelDirectory),
-                    node => typeof node.nodeData?.hasTexture === "boolean" ? <Icon icon="plus" onClick={() => addModelToMap(node)} /> : undefined
+                    node => typeof node.nodeData?.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={() => addModelToMap(node)} /> : undefined
                 )
             );
             showMessage("Local models loaded", "success");
@@ -89,7 +89,7 @@ export default function ModelList() {
     async function loadMapModels() {
         if (mapName === undefined) return;
         try {
-            setMapNodes(folderToTreeNodes(await apiManager.getMapModels(mapName), node => <Icon icon="minus" onClick={() => removeModelFromMap(node)} />));
+            setMapNodes(folderToTreeNodes(await apiManager.getMapModels(mapName), node => <Icon icon="trash" intent="danger" onClick={() => removeModelFromMap(node)} />));
             showMessage("Map models loaded", "success");
         } catch(e) {
             handleError(e);
@@ -189,10 +189,9 @@ export default function ModelList() {
                     </>
                 }
             >
-                <Card style={{ minWidth: "30em", margin: "1em", padding: 0, alignItems: "center", justifyContent: "center" }} elevation={Elevation.THREE} >
-                    <h5>{mapName}</h5>
-                    <br/>
-                    <div style={{ overflowY: "scroll" }}>
+                <Card style={{ minWidth: "30em", margin: "1em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
+                    <h2 style={{ textAlign: "center" }}>{mapName}</h2>
+                    <div style={{ overflowY: "scroll", flex: 1 }}>
                         <Tree
                             contents={mapNodes}
                             onNodeExpand={mapNodeClicked}
@@ -201,13 +200,16 @@ export default function ModelList() {
                         />
                     </div>
                 </Card>
-                <Card style={{ minWidth: "30em", margin: "1em", padding: 0, overflowY: "scroll" }} elevation={Elevation.THREE} >
-                    <Tree
-                        contents={browserNodes}
-                        onNodeExpand={browserNodeClicked}
-                        onNodeCollapse={browserNodeClicked}
-                        onNodeClick={browserNodeClicked}
-                    />
+                <Card style={{ minWidth: "30em", margin: "1em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
+                    <h2 style={{ textAlign: "center" }}>Model Browser</h2>
+                    <div style={{ overflowY: "scroll", flex: 1 }}>
+                        <Tree
+                            contents={browserNodes}
+                            onNodeExpand={browserNodeClicked}
+                            onNodeCollapse={browserNodeClicked}
+                            onNodeClick={browserNodeClicked}
+                        />
+                    </div>
                 </Card>
                 <Card style={{ flex: 3, margin: "1em", padding: 0 }} elevation={Elevation.THREE}>
                     <Canvas>
