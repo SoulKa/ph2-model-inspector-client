@@ -160,7 +160,6 @@ export default function ModelList() {
      * @param node The clicked node (3D model or folder)
      */
     function addModelToMap( node: TreeNodeInfo<ModelObject> ) {
-        console.log(node);
         if (mapName === undefined || node.nodeData === undefined || node.nodeData.hasTexture === undefined) return;
         if ((_mapNodes||[]).findIndex(n => n.id === node.id) !== -1) {
             showMessage(`Already added "${node.id}" to "${mapName}"...`, "warning");
