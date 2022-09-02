@@ -12,10 +12,6 @@ import { Vector3 } from "three";
 
 declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
-declare type SelectedModelObject = ModelObject & {
-    isMapModel: boolean;
-};
-
 const apiManager = ApiManager.instance;
 const storageManager = StorageManager.instance;
 
@@ -71,7 +67,7 @@ export default function ModelList() {
     const [loading, setLoading] = useState(false);
     const [mapNodes, setMapNodes] = useState<ModelTreeNode[]>();
     const [browserNodes, setBrowserNodes] = useState<ModelTreeNode[]>();
-    const [model, setModel] = useState<SelectedModelObject>();
+    const [model, setModel] = useState<ModelObject>();
 
     _mapNodes = mapNodes;
     _browserNodes = browserNodes;
@@ -126,16 +122,6 @@ export default function ModelList() {
     }, []);
 
     /**
-     * Calback for clicks in the map model list
-     * @param node The clicked node (3D model)
-     */
-    function mapNodeClicked( node: ModelTreeNode ) {
-        if (node.nodeData === undefined || mapName === undefined) return;
-        console.log(`Showing 3D model "${node.id}"`);
-        setModel(Object.assign({ isMapModel: true }, node.nodeData) as SelectedModelObject);
-    }
-
-    /**
      * Calback for deletion clicks on a map model object
      * @param node The clicked node (3D model)
      */
@@ -147,12 +133,12 @@ export default function ModelList() {
     }
 
     /**
-     * Calback for clicks in the model browser
+     * Calback for clicks in the model or map browser
      * @param node The clicked node (3D model or folder)
      */
-    function browserNodeClicked( node: ModelTreeNode ) {
-        console.log(node);
-        switch (node.nodeData!.type) {
+    function nodeClicked( node: ModelTreeNode ) {
+        const info = node.nodeData!;
+        switch (info.type) {
             case FileNodeType.DIRECTORY:
                 node.isExpanded = !node.isExpanded;
                 node.icon = node.isExpanded ? "folder-open" : "folder-close";
@@ -160,8 +146,8 @@ export default function ModelList() {
                 break;
 
             case FileNodeType.MODEL:
-                console.log(`Showing 3D model "${node.id}"`);
-                setModel(Object.assign({ isMapModel: false }, node.nodeData) as SelectedModelObject);
+                console.log(`Showing 3D model "${info.name}"`);
+                setModel(info);
                 break;
         }
     }
@@ -177,7 +163,7 @@ export default function ModelList() {
             showMessage(`Already added "${node.id}" to "${mapName}"...`, "warning");
             return;
         }
-        apiManager.addModelToMap(mapName, info.modelPath, info.texturePath)
+        apiManager.addModelToMap(mapName, info)
             .then(() => {
                 const _node = Object.assign({}, node);
                 _node.nodeData = Object.assign({}, info);
@@ -185,21 +171,6 @@ export default function ModelList() {
                 setMapNodes((_mapNodes||[]).concat([_node]));
             })
             .catch(handleError);
-    }
-
-    // render model component
-    let modelNode = null as JSX.Element|null;
-    if (model !== undefined) {
-        if (!model.isMapModel && storageManager.getAppState("modelDirectory") === undefined) {
-            showError("Must select a model directory first!");
-        } else {
-            modelNode = (
-                <Model
-                    modelUrl={apiManager.getFileUrl(model.modelPath)}
-                    textureUrl={model.texturePath ? apiManager.getFileUrl(model.texturePath) : undefined}
-                />
-            );
-        }
     }
 
     return (
@@ -225,9 +196,7 @@ export default function ModelList() {
                     <div style={{ overflowY: "scroll", flex: 1, borderTop: "1px solid lightgrey" }}>
                         <Tree
                             contents={mapNodes||[]}
-                            onNodeExpand={mapNodeClicked}
-                            onNodeCollapse={mapNodeClicked}
-                            onNodeClick={mapNodeClicked}
+                            onNodeClick={nodeClicked}
                         />
                     </div>
                 </Card>
@@ -236,9 +205,9 @@ export default function ModelList() {
                     <div style={{ overflowY: "scroll", flex: 1, borderTop: "1px solid lightgrey" }}>
                         <Tree
                             contents={browserNodes||[]}
-                            onNodeExpand={browserNodeClicked}
-                            onNodeCollapse={browserNodeClicked}
-                            onNodeClick={browserNodeClicked}
+                            onNodeExpand={nodeClicked}
+                            onNodeCollapse={nodeClicked}
+                            onNodeClick={nodeClicked}
                         />
                     </div>
                 </Card>
@@ -248,7 +217,7 @@ export default function ModelList() {
                         <CameraController />
                         <pointLight position={new Vector3(25, 25, 25)} intensity={0.6} />
                         <pointLight position={new Vector3(-25, -25, -25)} intensity={0.6} />
-                        {modelNode}
+                        {model === undefined ? null :<Model modelUrl={apiManager.getFileUrl(model.modelPath)} textureUrl={model.texturePath ? apiManager.getFileUrl(model.texturePath) : undefined} />}
                     </Canvas>
                 </Card>
             </Page>

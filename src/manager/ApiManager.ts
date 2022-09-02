@@ -1,4 +1,4 @@
-import { ModelFolderObject } from "../types";
+import { ModelFolderObject, ModelObject } from "../types";
 import { DisplayableError, HttpError } from "../classes/Error";
 import { StorageManager } from "./StateManager";
 
@@ -106,11 +106,11 @@ export class ApiManager {
         return await this.fetch(API_ENDPOINT.MAP_MODELS, { params: { map: mapName } }) as ModelFolderObject;
     }
 
-    async addModelToMap( mapName: string, modelPath: string, texturePath?: string ) {
-        console.log(`Adding model "${modelPath}" to "${mapName}"...`);
+    async addModelToMap( mapName: string, model: ModelObject ) {
+        console.log(`Adding model "${model.name}" to "${mapName}"...`);
         const modelDirectory = storageManager.getAppState("modelDirectory");
         if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
-        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: { modelPath, texturePath }, params: { map: mapName }, query: { modelDirectory } });
+        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: model, params: { map: mapName }, query: { modelDirectory } });
     }
 
     async removeModelFromMap( mapName: string, modelName: string ) {
