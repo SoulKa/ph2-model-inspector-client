@@ -31,7 +31,7 @@ export class StorageManager {
         return this._appState;
     }
 
-    updateAppState( key: keyof AppState, value: AppState[keyof AppState] ) {
+    updateAppState( key: keyof AppState, value?: AppState[keyof AppState] ) {
         this._appState[key] = value;
         window.sessionStorage.setItem(APP_STATE_KEY, JSON.stringify(this._appState));
     }

@@ -1,5 +1,4 @@
 import { Button, Card, Elevation, Icon, InputGroup, Tree, TreeNodeInfo } from "@blueprintjs/core";
-import { useNavigate } from "react-router-dom";
 import { ModelFolderObject } from "../../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
@@ -68,7 +67,6 @@ export default function ModelList() {
     const [mapNodes, setMapNodes] = useState<TreeNodeInfo<ModelObject>[]>();
     const [browserNodes, setBrowserNodes] = useState<TreeNodeInfo<ModelObject>[]>();
     const [model, setModel] = useState<SelectedModelObject>();
-    const navigation = useNavigate();
 
     _mapNodes = mapNodes;
     _browserNodes = browserNodes;
@@ -178,12 +176,6 @@ export default function ModelList() {
             .catch(handleError);
     }
 
-    // check if map is selected
-    if (mapName === undefined) {
-        navigation("/");
-        return null;
-    }
-
     // render model component
     let modelNode = null as JSX.Element|null;
     if (model !== undefined) {
@@ -218,7 +210,7 @@ export default function ModelList() {
                 }
             >
                 <Card style={{ minWidth: "30em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
-                    <h2 style={{ textAlign: "center" }}>{mapName}</h2>
+                    <h2 style={{ textAlign: "center" }}>{mapName||"No map selected"}</h2>
                     <div style={{ overflowY: "scroll", flex: 1, borderTop: "1px solid lightgrey" }}>
                         <Tree
                             contents={mapNodes||[]}
@@ -229,7 +221,7 @@ export default function ModelList() {
                     </div>
                 </Card>
                 <Card style={{ minWidth: "30em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
-                    <h2 style={{ textAlign: "center" }}>Model Browser</h2>
+                    <h2 style={{ textAlign: "center" }}>Model browser</h2>
                     <div style={{ overflowY: "scroll", flex: 1, borderTop: "1px solid lightgrey" }}>
                         <Tree
                             contents={browserNodes||[]}

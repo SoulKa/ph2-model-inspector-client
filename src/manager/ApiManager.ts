@@ -14,6 +14,11 @@ export enum API_ENDPOINT {
     MODEL_TEXTURE = "/api/models/texture"
 }
 
+export enum APP_ENDPOINT {
+    MAP_SELECTION = "/",
+    MODEL_BROWSER = "/browser"
+}
+
 declare type ParamsObject = { [key: string]: number|string };
 
 export type FechtOptions = {
