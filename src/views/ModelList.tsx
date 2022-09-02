@@ -1,4 +1,4 @@
-import { Button, Card, Elevation, Icon, InputGroup, Tree, TreeNodeInfo } from "@blueprintjs/core";
+import { Button, Card, ContextMenu, Elevation, Icon, InputGroup, Menu, MenuItem, Tree, TreeNodeInfo } from "@blueprintjs/core";
 import { FileNodeObject, FileNodeType, ModelFolderObject, ModelObject } from "../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
@@ -7,8 +7,9 @@ import CameraController from "../components/CameraController";
 import { Model } from "../components/Model";
 import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
-import { handleError, showError, showMessage } from "../classes/Toaster";
+import { handleError, showMessage } from "../classes/Toaster";
 import { Vector3 } from "three";
+import { crawl } from "../classes/Util";
 
 declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
@@ -150,6 +151,46 @@ export default function ModelList() {
                 setModel(info);
                 break;
         }
+    }
+
+    /**
+     * Calback for right clicks in the map browser
+     * @param node The clicked node (3D model or folder)
+     */
+    function openMenu( nodes: ModelTreeNode[], node: ModelTreeNode, path: number[], event: React.MouseEvent<HTMLElement, MouseEvent> ) {
+        event.preventDefault();
+
+        const info = node.nodeData!;
+        let content = null as JSX.Element|null;
+        switch (info.type) {
+            case FileNodeType.DIRECTORY:
+                break;
+
+            case FileNodeType.MODEL:
+                
+                break;
+            
+            default: return;
+        }
+
+        ContextMenu.show(
+            <Menu>
+                <MenuItem
+                    text="Set Texture"
+                    onClick={() => {
+                        crawl(
+                            path.reduce( (n, i) => n[i].childNodes!, nodes ),
+                            n => {
+                                const info = n.nodeData!;
+                                if (info.type === FileNodeType.MODEL) info.texturePath = "//FILEPATHOFTEXTUER"
+                                return n.childNodes||[];
+                            }
+                        );
+                    }}
+                />
+            </Menu>,
+            { left: event.clientX, top: event.clientY }
+        )
     }
 
     /**

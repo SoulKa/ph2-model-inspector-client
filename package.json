@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@blueprintjs/core": "^4.9.3",
+    "@blueprintjs/popover2": "^1.6.3",
     "@react-three/drei": "^9.25.2",
     "@react-three/fiber": "^8.6.0",
     "@types/jest": "^27.5.2",
