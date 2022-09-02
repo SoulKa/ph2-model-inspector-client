@@ -29,7 +29,12 @@ export default function MapSelection() {
                 >
                     <h2>{mapName}</h2>
                     <br/>
-                    <img src={apiManager.getMapImageUrl(mapName)} alt="Map Preview" style={{ maxHeight: "100%", maxWidth: "100%" }} />
+                    <img
+                        src={apiManager.getMapImageUrl(mapName)}
+                        alt="Map Preview"
+                        style={{ maxHeight: "100%", maxWidth: "100%" }}
+                        onError={({ currentTarget }) => { currentTarget.onerror = null; currentTarget.src = "/default-map-image.png"; }}
+                    />
                 </Card>
             ))}
         </Page>
