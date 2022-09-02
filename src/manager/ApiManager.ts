@@ -1,4 +1,4 @@
-import { ModelFolderObject } from "../../types";
+import { ModelFolderObject } from "../types";
 import { DisplayableError, HttpError } from "../classes/Error";
 import { StorageManager } from "./StateManager";
 
@@ -6,12 +6,9 @@ export enum API_ENDPOINT {
     MAPS = "/api/maps",
     MAP_MODELS = "/api/maps/:map/models",
     MAP_MODEL = "/api/maps/:map/models/:model",
-    MAP_MODEL_MESH = "/api/maps/:map/models/:model/mesh",
-    MAP_MODEL_TEXTURE = "/api/maps/:map/models/:model/texture",
     MAP_IMAGE = "/api/maps/:map/preview.png",
     MODELS = "/api/models",
-    MODEL_MESH = "/api/models/mesh",
-    MODEL_TEXTURE = "/api/models/texture"
+    FILE = "/api/file"
 }
 
 export enum APP_ENDPOINT {
@@ -95,18 +92,8 @@ export class ApiManager {
         return formatUrlParams(API_ENDPOINT.MAP_IMAGE, { map });
     }
 
-    getModelUrl( type : "mesh"|"texture", modelPath: string, mapName?: string ) {
-        const modelDirectory = storageManager.getAppState("modelDirectory");
-        let url = "";
-        if (mapName === undefined) {
-            if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
-            url = type === "mesh" ? API_ENDPOINT.MODEL_MESH : API_ENDPOINT.MODEL_TEXTURE;
-            url = formatUrlQuery(url, { modelDirectory, modelPath });
-        } else {
-            url = type === "mesh" ? API_ENDPOINT.MAP_MODEL_MESH : API_ENDPOINT.MAP_MODEL_TEXTURE;
-            url = formatUrlParams(url, { map: mapName, model: modelPath });
-        }
-        return url;
+    getFileUrl( filepath: string ) {
+        return formatUrlQuery(API_ENDPOINT.FILE, { path: filepath });
     }
 
     async getModels( directory: string ) {

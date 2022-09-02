@@ -1,5 +1,5 @@
 import { Button, Card, Elevation, Icon, InputGroup, Tree, TreeNodeInfo } from "@blueprintjs/core";
-import { ModelFolderObject } from "../../types";
+import { FileNodeObject, FileNodeType, ModelFolderObject, ModelObject } from "../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
 import { Canvas } from "@react-three/fiber";
@@ -10,10 +10,7 @@ import { StorageManager } from "../manager/StateManager";
 import { handleError, showError, showMessage } from "../classes/Toaster";
 import { Vector3 } from "three";
 
-declare type ModelObject = {
-    modelPath: string;
-    hasTexture?: boolean;
-};
+declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
 declare type SelectedModelObject = ModelObject & {
     isMapModel: boolean;
@@ -22,50 +19,58 @@ declare type SelectedModelObject = ModelObject & {
 const apiManager = ApiManager.instance;
 const storageManager = StorageManager.instance;
 
-function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: TreeNodeInfo<ModelObject>) => JSX.Element|undefined, modelPath = "" ) {
-    const nodes = [] as TreeNodeInfo<ModelObject>[];
+function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: ModelTreeNode) => JSX.Element|undefined, path = "" ) {
+    const nodes = [] as ModelTreeNode[];
 
     let fileCount = 0;
     let dirCount = 0;
-    for (const [name, subdir] of Object.entries(dir)) {
-        const _modelPath = modelPath + (modelPath === "" ? "" : ":") + name;
+    for ( const [index, info] of dir.entries() ) {
         const node = {
-            id: name,
-            label: name.substring(0, name.length),
-            nodeData: { modelPath: _modelPath }
-        } as TreeNodeInfo<ModelObject>;
-        if (typeof subdir === "object") {
-            const { nodes: subnodes, fileCount: fc, dirCount: dc } = folderToTreeNodes(subdir, icon, _modelPath);
-            node.childNodes = subnodes;
-            node.icon = "folder-close";
-            dirCount += 1 + dc;
-            fileCount += fc;
-        } else if (typeof subdir === "boolean") {
-            node.nodeData!.hasTexture = subdir;
-            node.icon = <Icon icon="cube" intent={subdir ? "primary" : "none"} style={{ marginRight: ".5em" }} />;
-            fileCount++;
-        } else {
-            continue;
+            id: path+index,
+            label: info.name,
+            nodeData: { name: info.name }
+        } as ModelTreeNode;
+
+        // check filenode type
+        switch (info.type) {
+            case FileNodeType.DIRECTORY:
+                const { nodes: subnodes, fileCount: fc, dirCount: dc } = folderToTreeNodes(info.children, icon, path);
+                node.nodeData!.type = FileNodeType.DIRECTORY;
+                node.childNodes = subnodes;
+                node.icon = "folder-close";
+                dirCount += 1 + dc;
+                fileCount += fc;
+                break;
+                
+                case FileNodeType.MODEL:
+                node.nodeData!.type = FileNodeType.MODEL;
+                (node.nodeData as ModelObject).modelPath = info.modelPath;
+                (node.nodeData as ModelObject).texturePath = info.texturePath;
+                node.icon = <Icon icon="cube" intent={info.texturePath === undefined ? "none" : "primary"} style={{ marginRight: ".5em" }} />;
+                fileCount++;
+                break;
+
+            default: continue; // never
         }
         
         // use callback for icon generation
         if (icon !== undefined) node.secondaryLabel = icon(node);
         nodes.push(node);
-    }
+    };
 
     return { nodes, fileCount, dirCount };
 }
 
-let _mapNodes : TreeNodeInfo<ModelObject>[]|undefined;
-let _browserNodes : TreeNodeInfo<ModelObject>[]|undefined;
+let _mapNodes : ModelTreeNode[]|undefined;
+let _browserNodes : ModelTreeNode[]|undefined;
 let loadingMapModels = false;
 let loadingBrowserModels = false;
 
 export default function ModelList() {
     
     const [loading, setLoading] = useState(false);
-    const [mapNodes, setMapNodes] = useState<TreeNodeInfo<ModelObject>[]>();
-    const [browserNodes, setBrowserNodes] = useState<TreeNodeInfo<ModelObject>[]>();
+    const [mapNodes, setMapNodes] = useState<ModelTreeNode[]>();
+    const [browserNodes, setBrowserNodes] = useState<ModelTreeNode[]>();
     const [model, setModel] = useState<SelectedModelObject>();
 
     _mapNodes = mapNodes;
@@ -85,7 +90,7 @@ export default function ModelList() {
             
             const { nodes, fileCount, dirCount } = folderToTreeNodes(
                 await apiManager.getModels(apiManager.modelDirectory),
-                node => typeof node.nodeData!.hasTexture === "boolean" ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
+                node => node.nodeData!.type === FileNodeType.MODEL ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
             );
             setBrowserNodes(nodes);
             showMessage(`Loaded ${fileCount} local models from ${dirCount} directories`, "success");
@@ -124,7 +129,7 @@ export default function ModelList() {
      * Calback for clicks in the map model list
      * @param node The clicked node (3D model)
      */
-    function mapNodeClicked( node: TreeNodeInfo<ModelObject> ) {
+    function mapNodeClicked( node: ModelTreeNode ) {
         if (node.nodeData === undefined || mapName === undefined) return;
         console.log(`Showing 3D model "${node.id}"`);
         setModel(Object.assign({ isMapModel: true }, node.nodeData) as SelectedModelObject);
@@ -134,9 +139,9 @@ export default function ModelList() {
      * Calback for deletion clicks on a map model object
      * @param node The clicked node (3D model)
      */
-    function removeModelFromMap( node: TreeNodeInfo<ModelObject> ) {
+    function removeModelFromMap( node: ModelTreeNode ) {
         if (node.nodeData === undefined || mapName === undefined) return;
-        apiManager.removeModelFromMap(mapName, node.nodeData.modelPath)
+        apiManager.removeModelFromMap(mapName, node.nodeData.name )
             .then(() => setMapNodes((_mapNodes||[]).filter( n => n.id !== node.id )))
             .catch(handleError);
     }
@@ -145,15 +150,19 @@ export default function ModelList() {
      * Calback for clicks in the model browser
      * @param node The clicked node (3D model or folder)
      */
-    function browserNodeClicked( node: TreeNodeInfo<ModelObject> ) {
-        if (node.nodeData === undefined) return;
-        if (node.nodeData.hasTexture === undefined) {
-            node.isExpanded = !node.isExpanded;
-            node.icon = node.isExpanded ? "folder-open" : "folder-close";
-            setBrowserNodes((_browserNodes||[]).concat());
-        } else {
-            console.log(`Showing 3D model "${node.id}"`);
-            setModel(Object.assign({ isMapModel: false }, node.nodeData) as SelectedModelObject);
+    function browserNodeClicked( node: ModelTreeNode ) {
+        console.log(node);
+        switch (node.nodeData!.type) {
+            case FileNodeType.DIRECTORY:
+                node.isExpanded = !node.isExpanded;
+                node.icon = node.isExpanded ? "folder-open" : "folder-close";
+                setBrowserNodes((_browserNodes||[]).concat());
+                break;
+
+            case FileNodeType.MODEL:
+                console.log(`Showing 3D model "${node.id}"`);
+                setModel(Object.assign({ isMapModel: false }, node.nodeData) as SelectedModelObject);
+                break;
         }
     }
 
@@ -161,18 +170,20 @@ export default function ModelList() {
      * Calback to add a 3D model to the map
      * @param node The clicked node (3D model or folder)
      */
-    function addModelToMap( node: TreeNodeInfo<ModelObject> ) {
-        if (mapName === undefined || node.nodeData === undefined || node.nodeData.hasTexture === undefined) return;
+    function addModelToMap( node: ModelTreeNode ) {
+        const info = node.nodeData!;
+        if (mapName === undefined || info.type !== FileNodeType.MODEL) return;
         if ((_mapNodes||[]).findIndex(n => n.id === node.id) !== -1) {
             showMessage(`Already added "${node.id}" to "${mapName}"...`, "warning");
             return;
         }
-        const _node = Object.assign({}, node);
-        _node.nodeData = Object.assign({}, node.nodeData);
-        _node.nodeData!.modelPath = node.nodeData!.modelPath.substring(node.nodeData!.modelPath.lastIndexOf(":")+1);
-        _node.secondaryLabel = <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(_node); return false; }} />
-        apiManager.addModelToMap(mapName, node.nodeData.modelPath, node.nodeData.hasTexture ? node.nodeData.modelPath : undefined)
-            .then(() => setMapNodes((_mapNodes||[]).concat([_node])))
+        apiManager.addModelToMap(mapName, info.modelPath, info.texturePath)
+            .then(() => {
+                const _node = Object.assign({}, node);
+                _node.nodeData = Object.assign({}, info);
+                _node.secondaryLabel = <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(_node); return false; }} />
+                setMapNodes((_mapNodes||[]).concat([_node]));
+            })
             .catch(handleError);
     }
 
@@ -184,8 +195,8 @@ export default function ModelList() {
         } else {
             modelNode = (
                 <Model
-                    modelUrl={apiManager.getModelUrl("mesh", model.modelPath, model.isMapModel ? mapName : undefined)}
-                    textureUrl={model.hasTexture ? apiManager.getModelUrl("texture", model.modelPath, model.isMapModel ? mapName : undefined) : undefined}
+                    modelUrl={apiManager.getFileUrl(model.modelPath)}
+                    textureUrl={model.texturePath ? apiManager.getFileUrl(model.texturePath) : undefined}
                 />
             );
         }
@@ -232,7 +243,7 @@ export default function ModelList() {
                     </div>
                 </Card>
                 <Card style={{ flex: 3, padding: 0 }} elevation={Elevation.THREE}>
-                    <h2 style={{ textAlign: "center" }}>{model ? model.modelPath.substring(model.modelPath.lastIndexOf(":")+1) : "Select a model..."}</h2>
+                    <h2 style={{ textAlign: "center" }}>{model ? model.name : "Select a model..."}</h2>
                     <Canvas style={{ borderTop: "1px solid lightgrey" }}>
                         <CameraController />
                         <pointLight position={new Vector3(25, 25, 25)} intensity={0.6} />
