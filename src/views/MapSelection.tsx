@@ -30,24 +30,26 @@ export default function MapSelection() {
             title="Map Selection"
             headerComponents={<Button onClick={() => selectMap()} icon="step-forward" minimal>Skip Map Selection</Button>}
         >
-            {maps?.map( mapName => (
-                <Card
-                    style={{ maxWidth: "40em", float: "left", margin: "2em" }}
-                    onClick={() => selectMap(mapName)}
-                    elevation={Elevation.THREE}
-                    key={mapName}
-                    interactive
-                >
-                    <h2 style={{ textAlign: "center" }}>{mapName}</h2>
-                    <br/>
-                    <img
-                        src={apiManager.getMapImageUrl(mapName)}
-                        alt={mapName + " - Map Preview"}
-                        style={{ maxHeight: "100%", maxWidth: "100%" }}
-                        onError={({ currentTarget }) => { currentTarget.onerror = null; currentTarget.src = "/default-map-image.png"; }}
-                    />
-                </Card>
-            ))}
+            <div style={{ overflowY: "scroll", maxHeight: "100%", justifyContent: "center", flexDirection: "column" }} >
+                {maps?.map( mapName => (
+                    <Card
+                        style={{ maxWidth: "40em", float: "left", margin: "2em" }}
+                        onClick={() => selectMap(mapName)}
+                        elevation={Elevation.THREE}
+                        key={mapName}
+                        interactive
+                    >
+                        <h2 style={{ textAlign: "center" }}>{mapName}</h2>
+                        <br/>
+                        <img
+                            src={apiManager.getMapImageUrl(mapName)}
+                            alt={mapName + " - Map Preview"}
+                            style={{ maxHeight: "100%", maxWidth: "100%" }}
+                            onError={({ currentTarget }) => { currentTarget.onerror = null; currentTarget.src = "/default-map-image.png"; }}
+                        />
+                    </Card>
+                ))}
+            </div>
         </Page>
     );
 }
