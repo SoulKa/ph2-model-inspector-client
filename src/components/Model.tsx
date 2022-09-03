@@ -53,12 +53,17 @@ async function loadModel( modelUrl: string, textureUrl?: string, onProgress?: (p
     ]);
 
     // apply texture
-    if (texture !== undefined) model.traverse(
+    const hasTexture = texture !== undefined;
+    model.traverse(
         (obj) => {
             const mesh = obj as Mesh<BufferGeometry, MeshPhongMaterial>;
             if (mesh.isMesh) {
-                mesh.material.map = texture;
-                mesh.material.needsUpdate = true;
+                if (hasTexture) {
+                    mesh.material.map = texture;
+                    mesh.material.needsUpdate = true;
+                } else {
+                    mesh.material = new MeshPhongMaterial({ color: 0xFFFFFF });
+                }
             }
         }
     );
