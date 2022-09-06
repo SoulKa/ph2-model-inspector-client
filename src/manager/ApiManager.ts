@@ -1,4 +1,4 @@
-import { ModelFolderObject, ModelObject } from "../types";
+import { DirectoryListingObject, ModelFolderObject, ModelObject, OsInfoObject } from "../types";
 import { DisplayableError, HttpError } from "../classes/Error";
 import { StorageManager } from "./StateManager";
 
@@ -8,7 +8,9 @@ export enum API_ENDPOINT {
     MAP_MODEL = "/api/maps/:map/models/:model",
     MAP_IMAGE = "/api/maps/:map/preview.png",
     MODELS = "/api/models",
-    FILE = "/api/file"
+    FILE = "/api/file",
+    DIRECTORIES = "/api/directories",
+    DIRECTORIES_INFO = "/api/directories/os-info",
 }
 
 export enum APP_ENDPOINT {
@@ -39,6 +41,8 @@ const storageManager = StorageManager.instance;
 export class ApiManager {
 
     private static _instance : ApiManager|undefined;
+    
+    private _osInfo : OsInfoObject|undefined;
 
     modelDirectory : string|undefined;
 
@@ -55,7 +59,7 @@ export class ApiManager {
      * @param options Partial options for the request
      * @returns The response JSON object if any
      */
-    async fetch( endpoint: API_ENDPOINT, options = {} as Partial<FechtOptions> ) {
+    async fetch<T = any>( endpoint: API_ENDPOINT, options = {} as Partial<FechtOptions> ) {
 
         // prepare URL
         let url = endpoint as string;
@@ -80,8 +84,7 @@ export class ApiManager {
             }
         );
         if (!req.ok) throw new HttpError(await req.text(), req.status);
-        if (req.headers.get("Content-Type")?.startsWith("application/json")) return await req.json();
-    
+        if (req.headers.get("Content-Type")?.startsWith("application/json")) return await req.json() as T;
     }
 
     async getMaps() {
@@ -94,6 +97,10 @@ export class ApiManager {
 
     getFileUrl( filepath: string ) {
         return formatUrlQuery(API_ENDPOINT.FILE, { path: filepath });
+    }
+
+    async listFiles( directory: string ) {
+        return await this.fetch(API_ENDPOINT.DIRECTORIES, { query: { path: directory } }) as DirectoryListingObject;
     }
 
     async getModels( directory: string ) {
@@ -116,6 +123,19 @@ export class ApiManager {
     async removeModelFromMap( mapName: string, modelName: string ) {
         console.log(`Removing model "${modelName}" from "${mapName}"...`);
         await this.fetch(API_ENDPOINT.MAP_MODEL, { method: "DELETE", params: { map: mapName, model: modelName } });
+    }
+
+    async getOsInfo() {
+        if (this._osInfo !== undefined) return this._osInfo;
+        return this._osInfo = (await this.fetch(API_ENDPOINT.DIRECTORIES_INFO))!;
+    }
+
+    async getPathDelimiter() {
+        return (await this.getOsInfo()).delimiter;
+    }
+
+    async getHomedir() {
+        return (await this.getOsInfo()).homedir;
     }
 
 }

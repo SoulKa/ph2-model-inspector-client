@@ -3,17 +3,22 @@ import { useCallback, useEffect, useState } from "react";
 import { handleError, showError } from "../classes/Toaster";
 import { ApiManager } from "../manager/ApiManager";
 import { FileBrowser as ChonkyFileBrowser, FileArray, FileData, FileNavbar, FileToolbar, FileContextMenu, FileList, ChonkyActions, ChonkyActionUnion, MapFileActionsToData } from "chonky";
+import { OsInfoObject, PathDelimiter } from "../types";
 
 const apiManager = ApiManager.instance;
 
 declare type FileBrowserProps = {
     isOpen: boolean;
-    initialDirectory: string;
+    directoriesOnly?: boolean;
+    showHiddenFiles?: boolean;
+    initialDirectory?: string;
+    fileExtensions?: string[];
     onClose: () => void;
     onSubmit: (filepath: string) => void;
 };
 
-declare type PathDelimiter = "/"|"\\";
+
+FileBrowser.defaultProps = { directoriesOnly: false, showHiddenFiles: false, fileExtensions: [] } as Partial<FileBrowserProps>;
 
 function joinPath( delimiter: PathDelimiter, ...dirs: string[] ) {
     return dirs.map( d => d.endsWith(delimiter) ? d.slice(0, -1) : d ).join(delimiter);
@@ -27,7 +32,7 @@ export default function FileBrowser( props: FileBrowserProps ) {
     
     const { isOpen, initialDirectory } = props;
 
-    const [delimiter, setDelimiter] = useState<PathDelimiter>();
+    const [osInfo, setOsInfo] = useState<OsInfoObject>();
     const [files, setFiles] = useState<FileArray<FileData>>();
     const [path, setPath] = useState<FileArray<FileData>>();
     const [selection, setSelection] = useState(initialDirectory);
@@ -35,15 +40,21 @@ export default function FileBrowser( props: FileBrowserProps ) {
 
     // sets the current directory
     function changeDirectory( directory: string ) {
-        if (delimiter === undefined) return;
-        setPath(directory.split(delimiter).map( (dirName, i, arr) => toChonkyFile(joinPath(delimiter, ...arr.slice(0, i), dirName), dirName, true) ));
+        if (osInfo === undefined) return;
+        setSelection(directory);
+        setPath(directory.split(osInfo.delimiter).map( (dirName, i, arr) => toChonkyFile(joinPath(osInfo.delimiter, ...arr.slice(0, i), dirName), dirName, true) ));
     }
 
     // gets called when user does some file UI interaction
     function onFileAction( data: MapFileActionsToData<ChonkyActionUnion> ) {
         switch (data.id) {
             case "open_files":
-                changeDirectory(data.payload.targetFile!.id);
+                const target = data.payload.targetFile!;
+                if (target.isDir) {
+                    changeDirectory(target.id);
+                } else if (!props.directoriesOnly) {
+                    props.onSubmit(target.id);
+                }
                 break;
 
             case "mouse_click_file":
@@ -55,27 +66,42 @@ export default function FileBrowser( props: FileBrowserProps ) {
 
     // load delimiter once
     useEffect(() => {
-        if (delimiter === undefined) apiManager.getPathDelimiter().then(setDelimiter).catch(handleError);
-    }, [delimiter]);
+        if (osInfo === undefined) apiManager.getOsInfo()
+            .then( osInfo => {
+                if (selection === undefined) setSelection(osInfo.homedir);
+                setOsInfo(osInfo);
+            })
+            .catch(handleError);
+    }, [osInfo]);
     
     // load files on path changes
     useEffect(() => {
-        if (delimiter === undefined) return;
+        if (osInfo === undefined) return;
         if (path === undefined) {
-            changeDirectory(initialDirectory);
+            changeDirectory(initialDirectory||osInfo.homedir);
         } else if (cwd !== undefined) {
-            apiManager.listFiles(cwd).then(f=> setFiles(Object.entries(f).map( ([name, isDir]) => toChonkyFile(joinPath(delimiter, cwd, name), name, isDir) ))).catch(showError);
+            apiManager.listFiles(cwd).then( f => {
+                const files = Object.entries(f)
+                    .filter( ([name, isDir]) => {
+                        if (props.directoriesOnly && !isDir) return false;
+                        if (!props.showHiddenFiles && (name.startsWith(".") || name.startsWith("$"))) return false;
+                        if (props.fileExtensions!.length !== 0 && !props.fileExtensions!.some( ext => name.endsWith(ext) )) return false;
+                        return true;
+                    })
+                    .map( ([name, isDir]) => toChonkyFile(joinPath(osInfo.delimiter, cwd, name), name, isDir) );
+                setFiles(files);
+            }).catch(showError);
         }
-    }, [path, delimiter, initialDirectory, cwd]);
+    }, [path, osInfo, initialDirectory, cwd]);
 
     // check if all is loaded
-    if (delimiter === undefined) return null;
+    if (osInfo === undefined) return null;
 
     return (
         <Dialog
             isOpen={isOpen}
             icon="folder-open"
-            title="Select a directory"
+            title="Filebrowser"
             style={{ height: "80vh", display: "flex", width: "80vw" }}
             onClose={props.onClose}
         >
@@ -98,7 +124,7 @@ export default function FileBrowser( props: FileBrowserProps ) {
                 <div className={Classes.DIALOG_FOOTER_ACTIONS} style={{ display: "flex" }}>
                     <div style={{ flex: 1 }}><InputGroup value={selection} readOnly/></div>
                     <Button onClick={props.onClose}>Cancel</Button>
-                    <Button intent="primary" onClick={() => props.onSubmit(selection)}>Select Folder</Button>
+                    <Button intent="primary" onClick={() => selection !== undefined && props.onSubmit(selection)}>{"Select " + (props.directoriesOnly ? "Folder" : "File")}</Button>
                 </div>
             </div>
         </Dialog>

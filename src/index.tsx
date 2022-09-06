@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import reportWebVitals from "./reportWebVitals";
+import { setChonkyDefaults } from "chonky";
+import { ChonkyIconFA } from "chonky-icon-fontawesome";
 
 import "./index.css";
 
@@ -10,13 +12,8 @@ import "@blueprintjs/icons/lib/css/blueprint-icons.css"
 import "@blueprintjs/core/lib/css/blueprint.css"
 import "normalize.css/normalize.css";
 
-declare module 'react' {
-  interface HTMLAttributes<T> extends AriaAttributes, DOMAttributes<T> {
-    // extends React's HTMLAttributes
-    directory?: string;        // remember to make these attributes optional....
-    webkitdirectory?: string;
-  }
-}
+// Chonky settings
+setChonkyDefaults({ iconComponent: ChonkyIconFA });
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement

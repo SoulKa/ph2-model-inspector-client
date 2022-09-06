@@ -10,6 +10,7 @@ import { StorageManager } from "../manager/StateManager";
 import { handleError, showMessage } from "../classes/Toaster";
 import { Vector3 } from "three";
 import { crawl } from "../classes/Util";
+import FileBrowser from "../components/FileBrowser";
 
 declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
@@ -69,27 +70,33 @@ export default function ModelList() {
     const [mapNodes, setMapNodes] = useState<ModelTreeNode[]>();
     const [browserNodes, setBrowserNodes] = useState<ModelTreeNode[]>();
     const [model, setModel] = useState<ModelObject>();
+    const [directoryInput, setDirectoryInput] = useState(storageManager.getAppState("modelDirectory")||"");
+    const [showDirectoryBrowser, setShowDirectoryBrowser] = useState(false);
+    const [showTextureBrowser, setShowTextureBrowser] = useState(false);
 
     _mapNodes = mapNodes;
     _browserNodes = browserNodes;
     const mapName = storageManager.getAppState("mapName");
-    apiManager.modelDirectory = storageManager.getAppState("modelDirectory");
 
     /**
      * Loads the model index for the currently selected directory
      */
-    async function loadAllModels() {
-        if (apiManager.modelDirectory === undefined) return;
+    async function loadAllModels( directory?: string ) {
+        if (directory === undefined) {
+            directory = directoryInput;
+        } else {
+            setDirectoryInput(directory);
+        }
+        if (directory.trim() === "") return;
         setLoading(true);
-        storageManager.updateAppState("modelDirectory", apiManager.modelDirectory);
         try {
             loadingBrowserModels = true;
-            
             const { nodes, fileCount, dirCount } = folderToTreeNodes(
-                await apiManager.getModels(apiManager.modelDirectory),
+                await apiManager.getModels(directory),
                 node => node.nodeData!.type === FileNodeType.MODEL ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
             );
             setBrowserNodes(nodes);
+            storageManager.updateAppState("modelDirectory", directory);
             showMessage(`Loaded ${fileCount} local models from ${dirCount} directories`, "success");
         } catch(e) {
             handleError(e);
@@ -178,14 +185,16 @@ export default function ModelList() {
                 <MenuItem
                     text="Set Texture"
                     onClick={() => {
-                        crawl(
+
+
+                        /*crawl(
                             path.reduce( (n, i) => n[i].childNodes!, nodes ),
                             n => {
                                 const info = n.nodeData!;
                                 if (info.type === FileNodeType.MODEL) info.texturePath = "//FILEPATHOFTEXTUER"
                                 return n.childNodes||[];
                             }
-                        );
+                        );*/
                     }}
                 />
             </Menu>,
@@ -214,6 +223,7 @@ export default function ModelList() {
             .catch(handleError);
     }
 
+
     return (
         <>
             <Page
@@ -222,18 +232,26 @@ export default function ModelList() {
                 headerComponents={
                     <>
                         <InputGroup
-                            defaultValue={apiManager.modelDirectory||undefined}
+                            value={directoryInput}
                             placeholder="Paste your model directory path here..."
-                            rightElement={<Button text={loading ? "Loading..." : "Load Models"} onClick={loadAllModels} disabled={loading} />}
-                            onChange={s => apiManager.modelDirectory = s.target.value}
+                            leftElement={<Button onClick={() => setShowDirectoryBrowser(true)} disabled={loading} icon="folder-open" minimal />}
+                            rightElement={<Button text={loading ? "Loading..." : "Load Models"} onClick={() => loadAllModels()} disabled={loading} />}
+                            onChange={s => setDirectoryInput(s.target.value)}
                             disabled={loading}
                             style={{ minWidth: "30em" }}
                         />
                     </>
                 }
             >
+                <FileBrowser
+                    isOpen={showDirectoryBrowser}
+                    initialDirectory={directoryInput}
+                    onClose={() => setShowDirectoryBrowser(false)}
+                    onSubmit={(dir) => { setShowDirectoryBrowser(false); loadAllModels(dir); }}
+                    directoriesOnly
+                />
                 <Card style={{ minWidth: "30em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
-                    <h2 style={{ textAlign: "center" }}>{mapName||"No map selected"}</h2>
+                    <h2 style={{ textAlign: "center" }}>Map ({mapName||"No map selected"})</h2>
                     <div style={{ overflowY: "scroll", flex: 1, borderTop: "1px solid lightgrey" }}>
                         <Tree
                             contents={mapNodes||[]}
