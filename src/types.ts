@@ -26,3 +26,5 @@ export type DirectoryListingObject = { [name: string]: boolean };
 
 export type PathDelimiter = "/"|"\\";
 export type OsInfoObject = { delimiter: "/"|"\\"; homedir: string };
+
+export type TextureConfigObject = { [modelFilepath: string]: string };
