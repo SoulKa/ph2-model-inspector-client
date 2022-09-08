@@ -18,7 +18,7 @@ export class StorageManager {
 
     private constructor() {
         try {
-            this._appState = JSON.parse(window.sessionStorage.getItem(APP_STATE_KEY)||"{}");
+            this._appState = JSON.parse(window.localStorage.getItem(APP_STATE_KEY)||"{}");
         } catch(e) {
             this._appState = {};
         }
@@ -33,7 +33,7 @@ export class StorageManager {
 
     updateAppState( key: keyof AppState, value?: AppState[keyof AppState] ) {
         this._appState[key] = value;
-        window.sessionStorage.setItem(APP_STATE_KEY, JSON.stringify(this._appState));
+        window.localStorage.setItem(APP_STATE_KEY, JSON.stringify(this._appState));
     }
 
 }
