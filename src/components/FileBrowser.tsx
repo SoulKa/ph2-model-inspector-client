@@ -32,17 +32,15 @@ export default function FileBrowser( props: FileBrowserProps ) {
     
     const { isOpen, initialDirectory } = props;
 
-    const [osInfo, setOsInfo] = useState<OsInfoObject>();
     const [files, setFiles] = useState<FileArray<FileData>>();
     const [path, setPath] = useState<FileArray<FileData>>();
-    const [selection, setSelection] = useState(initialDirectory);
+    const [selection, setSelection] = useState(initialDirectory||apiManager.osInfo.homedir);
     const cwd = (path === undefined || path.length === 0) ? undefined : path[path.length-1]?.id;
 
     // sets the current directory
     function changeDirectory( directory: string ) {
-        if (osInfo === undefined) return;
         setSelection(directory);
-        setPath(directory.split(osInfo.delimiter).map( (dirName, i, arr) => toChonkyFile(joinPath(osInfo.delimiter, ...arr.slice(0, i), dirName), dirName, true) ));
+        setPath(directory.split(apiManager.osInfo.delimiter).map( (dirName, i, arr) => toChonkyFile(joinPath(apiManager.osInfo.delimiter, ...arr.slice(0, i), dirName), dirName, true) ));
     }
 
     // gets called when user does some file UI interaction
@@ -64,38 +62,24 @@ export default function FileBrowser( props: FileBrowserProps ) {
         }
     }
 
-    // load delimiter once
-    useEffect(() => {
-        if (osInfo === undefined) apiManager.getOsInfo()
-            .then( osInfo => {
-                if (selection === undefined) setSelection(osInfo.homedir);
-                setOsInfo(osInfo);
-            })
-            .catch(handleError);
-    }, [osInfo]);
-    
     // load files on path changes
     useEffect(() => {
-        if (osInfo === undefined) return;
         if (path === undefined) {
-            changeDirectory(initialDirectory||osInfo.homedir);
+            changeDirectory(initialDirectory||apiManager.osInfo.homedir);
         } else if (cwd !== undefined) {
             apiManager.listFiles(cwd).then( f => {
                 const files = Object.entries(f)
                     .filter( ([name, isDir]) => {
                         if (props.directoriesOnly && !isDir) return false;
                         if (!props.showHiddenFiles && (name.startsWith(".") || name.startsWith("$"))) return false;
-                        if (props.fileExtensions!.length !== 0 && !props.fileExtensions!.some( ext => name.endsWith(ext) )) return false;
+                        if (props.fileExtensions!.length !== 0 && (!isDir && !props.fileExtensions!.some( ext => name.endsWith(ext) ))) return false;
                         return true;
                     })
-                    .map( ([name, isDir]) => toChonkyFile(joinPath(osInfo.delimiter, cwd, name), name, isDir) );
+                    .map( ([name, isDir]) => toChonkyFile(joinPath(apiManager.osInfo.delimiter, cwd, name), name, isDir) );
                 setFiles(files);
             }).catch(showError);
         }
-    }, [path, osInfo, initialDirectory, cwd]);
-
-    // check if all is loaded
-    if (osInfo === undefined) return null;
+    }, [path, initialDirectory, cwd]);
 
     return (
         <Dialog
