@@ -47,10 +47,6 @@ export class ApiManager {
     
     private _osInfo : OsInfoObject|undefined;
 
-    private _modelDirectory : string|undefined;
-
-    get modelDirectory() { return this._modelDirectory }
-
     get osInfo() { if (this._osInfo === undefined) throw new TypeError("OS info object is not set!"); return this._osInfo }
 
     static get instance() {
@@ -118,7 +114,6 @@ export class ApiManager {
 
     async getModels( directory: string ) {
         console.log("Loading model index...");
-        this._modelDirectory = directory;
         return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as ModelFolderObject;
     }
 
@@ -144,7 +139,9 @@ export class ApiManager {
     }
 
     async setCustomTexture( modelPath: string, texturePath: string ) {
-        await this.fetch(API_ENDPOINT.MODELS_TEXTURES, { method: "POST", query: { modelDirectory: storageManager.getAppState("modelDirectory")!, texturePath, modelPath } });
+        const modelDirectory = storageManager.getAppState("modelDirectory");
+        if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
+        await this.fetch(API_ENDPOINT.MODELS_TEXTURES, { method: "POST", query: { modelDirectory, texturePath, modelPath } });
     }
 
 }
