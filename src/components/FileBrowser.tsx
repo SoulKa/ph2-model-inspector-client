@@ -34,12 +34,18 @@ export default function FileBrowser( props: FileBrowserProps ) {
 
     const [files, setFiles] = useState<FileArray<FileData>>();
     const [path, setPath] = useState<FileArray<FileData>>();
-    const [selection, setSelection] = useState(initialDirectory||apiManager.osInfo.homedir);
+    const [selection, setSelection] = useState<string>();
     const cwd = (path === undefined || path.length === 0) ? undefined : path[path.length-1]?.id;
+
+    // sets the given path as return value
+    function select( filepath: string, isDir = true ) {
+        if (isDir && props.fileExtensions!.length !== 0 && !props.fileExtensions!.some(v => v === "")) return;
+        setSelection(filepath);
+    }
 
     // sets the current directory
     function changeDirectory( directory: string ) {
-        setSelection(directory);
+        select(directory);
         setPath(directory.split(apiManager.osInfo.delimiter).map( (dirName, i, arr) => toChonkyFile(joinPath(apiManager.osInfo.delimiter, ...arr.slice(0, i), dirName), dirName, true) ));
     }
 
@@ -57,13 +63,19 @@ export default function FileBrowser( props: FileBrowserProps ) {
 
             case "mouse_click_file":
             case "keyboard_click_file":
-                setSelection(data.payload.file.id);
+                select(data.payload.file.id, data.payload.file.isDir);
                 break;
         }
     }
 
     // load files on path changes
     useEffect(() => {
+
+        // reset on closes
+        if (!isOpen) {
+            return;
+        }
+
         if (path === undefined) {
             changeDirectory(initialDirectory||apiManager.osInfo.homedir);
         } else if (cwd !== undefined) {
@@ -79,7 +91,7 @@ export default function FileBrowser( props: FileBrowserProps ) {
                 setFiles(files);
             }).catch(showError);
         }
-    }, [path, initialDirectory, cwd]);
+    }, [isOpen, path, initialDirectory, cwd]);
 
     return (
         <Dialog
@@ -108,7 +120,7 @@ export default function FileBrowser( props: FileBrowserProps ) {
                 <div className={Classes.DIALOG_FOOTER_ACTIONS} style={{ display: "flex" }}>
                     <div style={{ flex: 1 }}><InputGroup value={selection} readOnly/></div>
                     <Button onClick={props.onClose}>Cancel</Button>
-                    <Button intent="primary" onClick={() => selection !== undefined && props.onSubmit(selection)}>{"Select " + (props.directoriesOnly ? "Folder" : "File")}</Button>
+                    <Button intent="primary" disabled={selection === undefined} onClick={() => selection !== undefined && props.onSubmit(selection)}>{"Select " + (props.directoriesOnly ? "Folder" : "File")}</Button>
                 </div>
             </div>
         </Dialog>

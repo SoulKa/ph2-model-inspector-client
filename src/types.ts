@@ -16,6 +16,7 @@ export type ModelObject = FileNodeObjectBase & {
 
 export type DirectoryObject = FileNodeObjectBase & {
     type: FileNodeType.DIRECTORY;
+    path: string;
     children: ModelFolderObject;
 };
 

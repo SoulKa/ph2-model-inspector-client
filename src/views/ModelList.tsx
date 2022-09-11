@@ -1,5 +1,5 @@
 import { Button, Card, ContextMenu, Elevation, Icon, InputGroup, Menu, MenuItem, Tree, TreeNodeInfo } from "@blueprintjs/core";
-import { FileNodeObject, FileNodeType, ModelFolderObject, ModelObject } from "../types";
+import { DirectoryObject, FileNodeObject, FileNodeType, ModelFolderObject, ModelObject } from "../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
 import { Canvas } from "@react-three/fiber";
@@ -16,6 +16,10 @@ declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
 const apiManager = ApiManager.instance;
 const storageManager = StorageManager.instance;
+
+function renderModelTextureIndicatorIcon( hasTexture: boolean ) {
+    return <Icon icon="cube" intent={hasTexture ? "primary" : "none"} style={{ marginRight: ".5em" }} />;
+}
 
 function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: ModelTreeNode) => JSX.Element|undefined, path = "" ) {
     const nodes = [] as ModelTreeNode[];
@@ -34,17 +38,18 @@ function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: ModelTreeNode)
             case FileNodeType.DIRECTORY:
                 const { nodes: subnodes, fileCount: fc, dirCount: dc } = folderToTreeNodes(info.children, icon, path);
                 node.nodeData!.type = FileNodeType.DIRECTORY;
+                (node.nodeData as DirectoryObject).path = info.path;
                 node.childNodes = subnodes;
                 node.icon = "folder-close";
                 dirCount += 1 + dc;
                 fileCount += fc;
                 break;
                 
-                case FileNodeType.MODEL:
+            case FileNodeType.MODEL:
                 node.nodeData!.type = FileNodeType.MODEL;
                 (node.nodeData as ModelObject).modelPath = info.modelPath;
                 (node.nodeData as ModelObject).texturePath = info.texturePath;
-                node.icon = <Icon icon="cube" intent={info.texturePath === undefined ? "none" : "primary"} style={{ marginRight: ".5em" }} />;
+                node.icon = renderModelTextureIndicatorIcon(info.texturePath !== undefined);
                 fileCount++;
                 break;
 
@@ -72,7 +77,7 @@ export default function ModelList() {
     const [model, setModel] = useState<ModelObject>();
     const [directoryInput, setDirectoryInput] = useState(storageManager.getAppState("modelDirectory")||"");
     const [showDirectoryBrowser, setShowDirectoryBrowser] = useState(false);
-    const [showTextureBrowser, setShowTextureBrowser] = useState(false);
+    const [textureBrowserNode, setTextureBrowserNode] = useState<ModelTreeNode>();
 
     _mapNodes = mapNodes;
     _browserNodes = browserNodes;
@@ -161,41 +166,40 @@ export default function ModelList() {
     }
 
     /**
-     * Calback for right clicks in the map browser
-     * @param node The clicked node (3D model or folder)
+     * Sets the texture for a model or directory
+     * @param filepath The filpath to the texture
      */
-    function openMenu( nodes: ModelTreeNode[], node: ModelTreeNode, path: number[], event: React.MouseEvent<HTMLElement, MouseEvent> ) {
+    function setTexture( filepath: string ) {
+        if (textureBrowserNode === undefined) return;
+        const info = textureBrowserNode.nodeData!;
+
+        // save in config file
+        apiManager.setCustomTexture(info.type === FileNodeType.DIRECTORY ? info.path : info.modelPath, filepath).catch(handleError);
+
+        // set texture recursively for all children below the node in the tree
+        crawl(
+            [textureBrowserNode],
+            n => {
+                const info = n.nodeData!;
+                if (info.type === FileNodeType.MODEL) {
+                    info.texturePath = filepath;
+                    n.icon = renderModelTextureIndicatorIcon(true);
+                }
+                return n.childNodes||[];
+            }
+        );
+
+        // close file browser
+        setTextureBrowserNode(undefined);
+    }
+
+    function openMenu( node: ModelTreeNode, event: React.MouseEvent<HTMLElement, MouseEvent> ) {
         event.preventDefault();
-
-        const info = node.nodeData!;
-        let content = null as JSX.Element|null;
-        switch (info.type) {
-            case FileNodeType.DIRECTORY:
-                break;
-
-            case FileNodeType.MODEL:
-                
-                break;
-            
-            default: return;
-        }
-
         ContextMenu.show(
             <Menu>
                 <MenuItem
                     text="Set Texture"
-                    onClick={() => {
-
-
-                        /*crawl(
-                            path.reduce( (n, i) => n[i].childNodes!, nodes ),
-                            n => {
-                                const info = n.nodeData!;
-                                if (info.type === FileNodeType.MODEL) info.texturePath = "//FILEPATHOFTEXTUER"
-                                return n.childNodes||[];
-                            }
-                        );*/
-                    }}
+                    onClick={() => setTextureBrowserNode(node)}
                 />
             </Menu>,
             { left: event.clientX, top: event.clientY }
@@ -223,6 +227,14 @@ export default function ModelList() {
             .catch(handleError);
     }
 
+    let textureBrowserNodeDirectory : string|undefined;
+    if (textureBrowserNode !== undefined) {
+        const info = textureBrowserNode.nodeData!;
+        switch (info.type) {
+            case FileNodeType.DIRECTORY: textureBrowserNodeDirectory = info.path; break;
+            case FileNodeType.MODEL: textureBrowserNodeDirectory = info.modelPath.substring(0, info.modelPath.lastIndexOf(apiManager.osInfo.delimiter)); break;
+        }
+    }
 
     return (
         <>
@@ -243,6 +255,13 @@ export default function ModelList() {
                     </>
                 }
             >
+                <FileBrowser
+                    isOpen={textureBrowserNode !== undefined}
+                    initialDirectory={textureBrowserNodeDirectory}
+                    onSubmit={setTexture}
+                    onClose={() => setTextureBrowserNode(undefined)}
+                    fileExtensions={[".png"]}
+                />
                 <FileBrowser
                     isOpen={showDirectoryBrowser}
                     initialDirectory={directoryInput}
@@ -267,6 +286,7 @@ export default function ModelList() {
                             onNodeExpand={nodeClicked}
                             onNodeCollapse={nodeClicked}
                             onNodeClick={nodeClicked}
+                            onNodeContextMenu={(node, path, e) => openMenu(node, e)}
                         />
                     </div>
                 </Card>

@@ -1,4 +1,4 @@
-import { DirectoryListingObject, ModelFolderObject, ModelObject, OsInfoObject } from "../types";
+import { DirectoryListingObject, ModelFolderObject, ModelObject, OsInfoObject, TextureConfigObject } from "../types";
 import { DisplayableError, HttpError } from "../classes/Error";
 import { StorageManager } from "./StateManager";
 
@@ -8,6 +8,7 @@ export enum API_ENDPOINT {
     MAP_MODEL = "/api/maps/:map/models/:model",
     MAP_IMAGE = "/api/maps/:map/preview.png",
     MODELS = "/api/models",
+    MODELS_TEXTURES = "/api/models/textures",
     FILE = "/api/file",
     DIRECTORIES = "/api/directories",
     DIRECTORIES_INFO = "/api/directories/os-info",
@@ -41,10 +42,16 @@ const storageManager = StorageManager.instance;
 export class ApiManager {
 
     private static _instance : ApiManager|undefined;
+
+    private _isInitialized = false;
     
     private _osInfo : OsInfoObject|undefined;
 
-    modelDirectory : string|undefined;
+    private _modelDirectory : string|undefined;
+
+    get modelDirectory() { return this._modelDirectory }
+
+    get osInfo() { if (this._osInfo === undefined) throw new TypeError("OS info object is not set!"); return this._osInfo }
 
     static get instance() {
         if (this._instance === undefined) this._instance = new ApiManager();
@@ -52,6 +59,12 @@ export class ApiManager {
     }
 
     private constructor() {}
+
+    async initialize() {
+        if (this._isInitialized) return;
+        this._osInfo = Object.freeze(await this.fetch(API_ENDPOINT.DIRECTORIES_INFO));
+        this._isInitialized = true;
+    }
 
     /**
      * Executes a HTTP request on the local API
@@ -105,6 +118,7 @@ export class ApiManager {
 
     async getModels( directory: string ) {
         console.log("Loading model index...");
+        this._modelDirectory = directory;
         return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as ModelFolderObject;
     }
 
@@ -125,17 +139,12 @@ export class ApiManager {
         await this.fetch(API_ENDPOINT.MAP_MODEL, { method: "DELETE", params: { map: mapName, model: modelName } });
     }
 
-    async getOsInfo() {
-        if (this._osInfo !== undefined) return this._osInfo;
-        return this._osInfo = (await this.fetch(API_ENDPOINT.DIRECTORIES_INFO))!;
+    async getCustomTextures() {
+        return await this.fetch(API_ENDPOINT.MODELS_TEXTURES) as TextureConfigObject;
     }
 
-    async getPathDelimiter() {
-        return (await this.getOsInfo()).delimiter;
-    }
-
-    async getHomedir() {
-        return (await this.getOsInfo()).homedir;
+    async setCustomTexture( modelPath: string, texturePath: string ) {
+        await this.fetch(API_ENDPOINT.MODELS_TEXTURES, { method: "POST", query: { modelDirectory: storageManager.getAppState("modelDirectory")!, texturePath, modelPath } });
     }
 
 }
