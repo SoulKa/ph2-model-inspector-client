@@ -1,4 +1,4 @@
-import { DirectoryListingObject, ModelFolderObject, ModelObject, OsInfoObject, TextureConfigObject } from "../types";
+import { DirectoryListingObject, FileNodeObject, ModelObject, ModelPathInfoObject, OsInfoObject, TextureConfigObject } from "../types";
 import { DisplayableError, HttpError } from "../classes/Error";
 import { StorageManager } from "./StateManager";
 
@@ -104,7 +104,8 @@ export class ApiManager {
         return formatUrlParams(API_ENDPOINT.MAP_IMAGE, { map });
     }
 
-    getFileUrl( filepath: string ) {
+    getFileUrl( filepath?: string ) {
+        if (filepath === undefined) return;
         return formatUrlQuery(API_ENDPOINT.FILE, { path: filepath });
     }
 
@@ -114,19 +115,18 @@ export class ApiManager {
 
     async getModels( directory: string ) {
         console.log("Loading model index...");
-        return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as ModelFolderObject;
+        return await this.fetch(API_ENDPOINT.MODELS, { query: { modelDirectory: directory } }) as FileNodeObject[];
     }
 
     async getMapModels( mapName: string ) {
         console.log("Loading map models...");
-        return await this.fetch(API_ENDPOINT.MAP_MODELS, { params: { map: mapName } }) as ModelFolderObject;
+        return await this.fetch(API_ENDPOINT.MAP_MODELS, { params: { map: mapName } }) as FileNodeObject[];
     }
 
-    async addModelToMap( mapName: string, model: ModelObject ) {
-        console.log(`Adding model "${model.name}" to "${mapName}"...`);
+    async addModelToMap( mapName: string, model: ModelPathInfoObject ) {
         const modelDirectory = storageManager.getAppState("modelDirectory");
         if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
-        await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: model, params: { map: mapName }, query: { modelDirectory } });
+        return await this.fetch(API_ENDPOINT.MAP_MODELS, { method: "POST", body: model, params: { map: mapName }, query: { modelDirectory } }) as ModelPathInfoObject;
     }
 
     async removeModelFromMap( mapName: string, modelName: string ) {
@@ -142,6 +142,12 @@ export class ApiManager {
         const modelDirectory = storageManager.getAppState("modelDirectory");
         if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
         await this.fetch(API_ENDPOINT.MODELS_TEXTURES, { method: "POST", query: { modelDirectory, texturePath, modelPath } });
+    }
+
+    async removeCustomTexture( modelPath: string ) {
+        const modelDirectory = storageManager.getAppState("modelDirectory");
+        if (modelDirectory === undefined) throw new DisplayableError("Must select a map directory first!");
+        await this.fetch(API_ENDPOINT.MODELS_TEXTURES, { method: "DELETE", query: { modelDirectory, modelPath } });
     }
 
 }

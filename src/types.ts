@@ -5,23 +5,27 @@ export enum FileNodeType {
 
 declare type FileNodeObjectBase = {
     name: string;
-    type: FileNodeType
+    type: FileNodeType;
+    customTexturePath?: string;
+    parent?: FileNodeObject;
+    path: string;
 };
 
 export type ModelObject = FileNodeObjectBase & {
     type: FileNodeType.MODEL;
-    modelPath: string;
     texturePath?: string;
 };
 
 export type DirectoryObject = FileNodeObjectBase & {
     type: FileNodeType.DIRECTORY;
-    path: string;
-    children: ModelFolderObject;
+    children: FileNodeObject[];
 };
 
 export type FileNodeObject = ModelObject|DirectoryObject;
-export type ModelFolderObject = FileNodeObject[];
+export type ModelPathInfoObject = {
+    modelPath: string;
+    texturePath?: string;
+}
 
 export type DirectoryListingObject = { [name: string]: boolean };
 

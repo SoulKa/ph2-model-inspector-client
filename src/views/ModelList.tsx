@@ -1,56 +1,63 @@
 import { Button, Card, ContextMenu, Elevation, Icon, InputGroup, Menu, MenuItem, Tree, TreeNodeInfo } from "@blueprintjs/core";
-import { DirectoryObject, FileNodeObject, FileNodeType, ModelFolderObject, ModelObject } from "../types";
+import { FileNodeObject, FileNodeType, ModelObject } from "../types";
 import { useEffect, useState } from "react";
 import Page from "../components/Page";
 import { Canvas } from "@react-three/fiber";
 import CameraController from "../components/CameraController";
 import { Model } from "../components/Model";
-import { ApiManager } from "../manager/ApiManager";
 import { StorageManager } from "../manager/StateManager";
 import { handleError, showMessage } from "../classes/Toaster";
 import { Vector3 } from "three";
-import { crawl } from "../classes/Util";
 import FileBrowser from "../components/FileBrowser";
+import { ModelManager } from "../manager/ModelManager";
+import { ApiManager } from "../manager/ApiManager";
 
 declare type ModelTreeNode = TreeNodeInfo<FileNodeObject>;
 
-const apiManager = ApiManager.instance;
 const storageManager = StorageManager.instance;
+const modelManager = ModelManager.instance;
+const apiManager = ApiManager.instance;
 
+/**
+ * A centralized function to render model icons for the tree view
+ * @param hasTexture If true, the model icon is colored
+ * @returns The Icon JSX.Element
+ */
 function renderModelTextureIndicatorIcon( hasTexture: boolean ) {
     return <Icon icon="cube" intent={hasTexture ? "primary" : "none"} style={{ marginRight: ".5em" }} />;
 }
 
-function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: ModelTreeNode) => JSX.Element|undefined, path = "" ) {
+/**
+ * Transforms the given folder/file structure in tree nodes to display
+ * @param dir The files and directories
+ * @param icon A callback that generates an icon depending on the node
+ * @param path [INTERNAL]: The current index path. Is used to create unique IDs
+ * @param parentNode [INTERNAL]: The parent file node object
+ * @param hasCustomTexture [INTERNAL]: If true, some parent node has set a custom texture
+ * @returns The tree nodes to render
+ */
+function folderToTreeNodes( dir: FileNodeObject[], oldNodes?: ModelTreeNode[], icon?: (node: ModelTreeNode) => JSX.Element|undefined, path = "", parentNode?: FileNodeObject, hasCustomTexture = false ) {
     const nodes = [] as ModelTreeNode[];
 
-    let fileCount = 0;
-    let dirCount = 0;
     for ( const [index, info] of dir.entries() ) {
         const node = {
             id: path+index,
             label: info.name,
-            nodeData: { name: info.name }
+            nodeData: info
         } as ModelTreeNode;
+        node.nodeData!.parent = parentNode;
 
         // check filenode type
         switch (info.type) {
             case FileNodeType.DIRECTORY:
-                const { nodes: subnodes, fileCount: fc, dirCount: dc } = folderToTreeNodes(info.children, icon, path);
-                node.nodeData!.type = FileNodeType.DIRECTORY;
-                (node.nodeData as DirectoryObject).path = info.path;
-                node.childNodes = subnodes;
+                const oldNode = oldNodes === undefined ? undefined : oldNodes[index];
+                node.isExpanded = oldNode?.isExpanded;
+                node.childNodes = folderToTreeNodes(info.children, oldNode?.childNodes, icon, path, info, info.customTexturePath !== undefined);
                 node.icon = "folder-close";
-                dirCount += 1 + dc;
-                fileCount += fc;
                 break;
                 
             case FileNodeType.MODEL:
-                node.nodeData!.type = FileNodeType.MODEL;
-                (node.nodeData as ModelObject).modelPath = info.modelPath;
-                (node.nodeData as ModelObject).texturePath = info.texturePath;
-                node.icon = renderModelTextureIndicatorIcon(info.texturePath !== undefined);
-                fileCount++;
+                node.icon = renderModelTextureIndicatorIcon(hasCustomTexture || info.customTexturePath !== undefined || info.texturePath !== undefined);
                 break;
 
             default: continue; // never
@@ -61,14 +68,10 @@ function folderToTreeNodes( dir: ModelFolderObject, icon?: (node: ModelTreeNode)
         nodes.push(node);
     };
 
-    return { nodes, fileCount, dirCount };
+    return nodes;
 }
 
-let _mapNodes : ModelTreeNode[]|undefined;
-let _browserNodes : ModelTreeNode[]|undefined;
-let loadingMapModels = false;
-let loadingBrowserModels = false;
-
+let _model : ModelObject|undefined;
 export default function ModelList() {
     
     const [loading, setLoading] = useState(false);
@@ -78,35 +81,50 @@ export default function ModelList() {
     const [directoryInput, setDirectoryInput] = useState(storageManager.getAppState("modelDirectory")||"");
     const [showDirectoryBrowser, setShowDirectoryBrowser] = useState(false);
     const [textureBrowserNode, setTextureBrowserNode] = useState<ModelTreeNode>();
+    _model = model;
 
-    _mapNodes = mapNodes;
-    _browserNodes = browserNodes;
     const mapName = storageManager.getAppState("mapName");
+
+    // on first component mount: load models if the path is given
+    useEffect(() => {
+        Promise.all([
+            loadModels(),
+            loadMapModels()
+        ])
+            .then(() => { updateModels(); updateMapModels(); })
+            .catch(handleError); // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function getModelIcon( node: ModelTreeNode ) {
+        if (node.nodeData!.type !== FileNodeType.MODEL) return;
+        return <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} />;
+    }
+
+    function getMapModelIcon( node: ModelTreeNode ) {
+        return <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} />
+    }
+
+    function updateModels() {
+        setBrowserNodes( folderToTreeNodes( modelManager.getModels(), browserNodes, getModelIcon ) );
+    }
+
+    function updateMapModels() {
+        setMapNodes( folderToTreeNodes( modelManager.getMapModels(), mapNodes, getMapModelIcon ) );
+    }
 
     /**
      * Loads the model index for the currently selected directory
      */
-    async function loadAllModels( directory?: string ) {
-        if (directory === undefined) {
-            directory = directoryInput;
-        } else {
-            setDirectoryInput(directory);
-        }
+    async function loadModels( directory?: string ) {
+        if (directory === undefined) directory = directoryInput;
         if (directory.trim() === "") return;
+
         setLoading(true);
         try {
-            loadingBrowserModels = true;
-            const { nodes, fileCount, dirCount } = folderToTreeNodes(
-                await apiManager.getModels(directory),
-                node => node.nodeData!.type === FileNodeType.MODEL ? <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} /> : undefined
-            );
-            setBrowserNodes(nodes);
-            storageManager.updateAppState("modelDirectory", directory);
-            showMessage(`Loaded ${fileCount} local models from ${dirCount} directories`, "success");
+            if (await modelManager.loadModels(directory)) updateModels();
         } catch(e) {
             handleError(e);
         }
-        loadingBrowserModels = false;
         setLoading(false);
     }
 
@@ -115,34 +133,37 @@ export default function ModelList() {
      */
     async function loadMapModels() {
         if (mapName === undefined) return;
-        loadingMapModels = true;
         try {
-            const { nodes, fileCount } = folderToTreeNodes(await apiManager.getMapModels(mapName), node => <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} />);
-            setMapNodes(nodes);
-            showMessage(`Loaded ${fileCount} map models`, "success");
+            if (await modelManager.loadMapModels()) updateMapModels();
         } catch(e) {
             handleError(e);
         }
-        loadingMapModels = false;
     }
-
-    // on first component mount: load models if the path is given
-    useEffect(() => {
-        Promise.all([
-            !loadingBrowserModels ? loadAllModels() : Promise.resolve(),
-            !loadingMapModels ? loadMapModels() : Promise.resolve()
-        ]).catch(handleError); // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     /**
      * Calback for deletion clicks on a map model object
      * @param node The clicked node (3D model)
      */
     function removeModelFromMap( node: ModelTreeNode ) {
-        if (node.nodeData === undefined || mapName === undefined) return;
-        apiManager.removeModelFromMap(mapName, node.nodeData.name )
-            .then(() => setMapNodes((_mapNodes||[]).filter( n => n.id !== node.id )))
+        const info = node.nodeData!;
+        if (info.type !== FileNodeType.MODEL) return;
+        modelManager.removeModelFromMap( info.path )
+            .then(() => {
+                if (_model !== undefined && _model.path === info.path) setModel(undefined); // hide when deleting current model
+                updateMapModels();
+            })
             .catch(handleError);
+    }
+
+    /**
+     * Displays the given model in the ThreeJS canvas
+     * @param model The model to render
+     */
+    function displayModel( model: ModelObject ) {
+        model = { ...model }; // clone to prevent modification of original
+        console.log(`Showing 3D model "${model.name}"`);
+        model.texturePath = ModelManager.extractTexturePath(model);
+        setModel(model);
     }
 
     /**
@@ -155,76 +176,87 @@ export default function ModelList() {
             case FileNodeType.DIRECTORY:
                 node.isExpanded = !node.isExpanded;
                 node.icon = node.isExpanded ? "folder-open" : "folder-close";
-                setBrowserNodes((_browserNodes||[]).concat());
+                setBrowserNodes(browserNodes!.slice());
                 break;
 
             case FileNodeType.MODEL:
-                console.log(`Showing 3D model "${info.name}"`);
-                setModel(info);
+                displayModel(info);
                 break;
         }
     }
 
     /**
-     * Sets the texture for a model or directory
-     * @param filepath The filpath to the texture
+     * Sets the texture for the currently right clicked model or directory
+     * @param filepath The filepath to the texture
      */
-    function setTexture( filepath: string ) {
+    async function setTexture( filepath: string ) {
         if (textureBrowserNode === undefined) return;
         const info = textureBrowserNode.nodeData!;
-
-        // save in config file
-        apiManager.setCustomTexture(info.type === FileNodeType.DIRECTORY ? info.path : info.modelPath, filepath).catch(handleError);
-
-        // set texture recursively for all children below the node in the tree
-        crawl(
-            [textureBrowserNode],
-            n => {
-                const info = n.nodeData!;
-                if (info.type === FileNodeType.MODEL) {
-                    info.texturePath = filepath;
-                    n.icon = renderModelTextureIndicatorIcon(true);
-                }
-                return n.childNodes||[];
-            }
-        );
-
-        // close file browser
-        setTextureBrowserNode(undefined);
+        
+        try {
+            await modelManager.setTexture(info.path, filepath);
+            updateModels();
+            setTextureBrowserNode(undefined);
+            if (model !== undefined) displayModel(modelManager.getModel(model.path)!);
+        } catch(e) {
+            handleError(e);
+        }
+        
     }
 
+    /**
+     * Removes a custom texture from a model or directory
+     * @param node The clicked model or directory
+     */
+    async function removeTexture( node: ModelTreeNode ) {
+        const info = node.nodeData!;
+        try {
+            await modelManager.removeTexture(info.path);
+            updateModels();
+            if (model !== undefined) displayModel(modelManager.getModel(model.path)!);
+        } catch(e) {
+            handleError(e);
+        }
+    }
+
+    /**
+     * Callback for right clicks on a browser node
+     * @param node The node that was clicked
+     * @param event The mouse event that includes the mouse position
+     */
     function openMenu( node: ModelTreeNode, event: React.MouseEvent<HTMLElement, MouseEvent> ) {
         event.preventDefault();
-        ContextMenu.show(
-            <Menu>
+
+        const items = [
+            <MenuItem
+                text="Set custom texture"
+                onClick={() => setTextureBrowserNode(node)}
+            />
+        ] as JSX.Element[];
+
+        if (node.nodeData!.customTexturePath !== undefined) {
+            items.push(
                 <MenuItem
-                    text="Set Texture"
-                    onClick={() => setTextureBrowserNode(node)}
+                    text="Remove custom texture"
+                    onClick={() => removeTexture(node)}
                 />
-            </Menu>,
+            );
+        }
+
+        ContextMenu.show(
+            <Menu children={items} />,
             { left: event.clientX, top: event.clientY }
-        )
+        );
     }
 
     /**
      * Calback to add a 3D model to the map
-     * @param node The clicked node (3D model or folder)
+     * @param node The clicked node
      */
     function addModelToMap( node: ModelTreeNode ) {
         const info = node.nodeData!;
         if (mapName === undefined || info.type !== FileNodeType.MODEL) return;
-        if ((_mapNodes||[]).findIndex(n => n.id === node.id) !== -1) {
-            showMessage(`Already added "${node.id}" to "${mapName}"...`, "warning");
-            return;
-        }
-        apiManager.addModelToMap(mapName, info)
-            .then(() => {
-                const _node = Object.assign({}, node);
-                _node.nodeData = Object.assign({}, info);
-                _node.secondaryLabel = <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(_node); return false; }} />
-                setMapNodes((_mapNodes||[]).concat([_node]));
-            })
-            .catch(handleError);
+        modelManager.addModelToMap(info.path).then(updateMapModels).catch(handleError);
     }
 
     let textureBrowserNodeDirectory : string|undefined;
@@ -232,7 +264,7 @@ export default function ModelList() {
         const info = textureBrowserNode.nodeData!;
         switch (info.type) {
             case FileNodeType.DIRECTORY: textureBrowserNodeDirectory = info.path; break;
-            case FileNodeType.MODEL: textureBrowserNodeDirectory = info.modelPath.substring(0, info.modelPath.lastIndexOf(apiManager.osInfo.delimiter)); break;
+            case FileNodeType.MODEL: textureBrowserNodeDirectory = info.path.substring(0, info.path.lastIndexOf(apiManager.osInfo.delimiter)); break;
         }
     }
 
@@ -247,7 +279,7 @@ export default function ModelList() {
                             value={directoryInput}
                             placeholder="Paste your model directory path here..."
                             leftElement={<Button onClick={() => setShowDirectoryBrowser(true)} disabled={loading} icon="folder-open" minimal />}
-                            rightElement={<Button text={loading ? "Loading..." : "Load Models"} onClick={() => loadAllModels()} disabled={loading} />}
+                            rightElement={<Button text={loading ? "Loading..." : "Load Models"} onClick={() => loadModels()} disabled={loading} />}
                             onChange={s => setDirectoryInput(s.target.value)}
                             disabled={loading}
                             style={{ minWidth: "30em" }}
@@ -266,7 +298,7 @@ export default function ModelList() {
                     isOpen={showDirectoryBrowser}
                     initialDirectory={directoryInput}
                     onClose={() => setShowDirectoryBrowser(false)}
-                    onSubmit={(dir) => { setShowDirectoryBrowser(false); loadAllModels(dir); }}
+                    onSubmit={(dir) => { setShowDirectoryBrowser(false); loadModels(dir); }}
                     directoriesOnly
                 />
                 <Card style={{ minWidth: "30em", padding: 0, display: "flex", flexDirection: "column" }} elevation={Elevation.THREE} >
@@ -296,7 +328,7 @@ export default function ModelList() {
                         <CameraController />
                         <pointLight position={new Vector3(25, 25, 25)} intensity={0.6} />
                         <pointLight position={new Vector3(-25, -25, -25)} intensity={0.6} />
-                        {model === undefined ? null :<Model modelUrl={apiManager.getFileUrl(model.modelPath)} textureUrl={model.texturePath ? apiManager.getFileUrl(model.texturePath) : undefined} />}
+                        {model === undefined ? null :<Model modelUrl={apiManager.getFileUrl(model.path)!} textureUrl={apiManager.getFileUrl(model.texturePath)} />}
                     </Canvas>
                 </Card>
             </Page>
