@@ -6,7 +6,7 @@ import { Canvas } from "@react-three/fiber";
 import CameraController from "../components/CameraController";
 import { Model } from "../components/Model";
 import { StorageManager } from "../manager/StateManager";
-import { handleError, showMessage } from "../classes/Toaster";
+import { handleError } from "../classes/Toaster";
 import { Vector3 } from "three";
 import FileBrowser from "../components/FileBrowser";
 import { ModelManager } from "../manager/ModelManager";
@@ -53,7 +53,7 @@ function folderToTreeNodes( dir: FileNodeObject[], oldNodes?: ModelTreeNode[], i
                 const oldNode = oldNodes === undefined ? undefined : oldNodes[index];
                 node.isExpanded = oldNode?.isExpanded;
                 node.childNodes = folderToTreeNodes(info.children, oldNode?.childNodes, icon, path, info, info.customTexturePath !== undefined);
-                node.icon = "folder-close";
+                node.icon = node.isExpanded ? "folder-open" : "folder-close";
                 break;
                 
             case FileNodeType.MODEL:
@@ -97,11 +97,11 @@ export default function ModelList() {
 
     function getModelIcon( node: ModelTreeNode ) {
         if (node.nodeData!.type !== FileNodeType.MODEL) return;
-        return <Icon icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} />;
+        return <Button icon="cube-add" intent="success" onClick={(e) => { e.stopPropagation(); addModelToMap(node); return false; }} minimal/>;
     }
 
     function getMapModelIcon( node: ModelTreeNode ) {
-        return <Icon icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} />
+        return <Button icon="trash" intent="danger" onClick={(e) => { e.stopPropagation(); removeModelFromMap(node); return false; }} minimal/>;
     }
 
     function updateModels() {
@@ -239,6 +239,7 @@ export default function ModelList() {
                 <MenuItem
                     text="Remove custom texture"
                     onClick={() => removeTexture(node)}
+                    intent="danger"
                 />
             );
         }
